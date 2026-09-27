@@ -4,6 +4,7 @@ import React, { createContext, memo, useCallback, useContext, useMemo, useState,
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { ConnectedWallet, useExportWallet, useSendTransaction, useSignTypedData } from "@privy-io/react-auth";
+import type { InjectedWallet } from "@/lib/injectedWallets";
 
 /**
  * Auth and wallet actions for the whole app. Privy's SDK is big (about 700 KB compressed), so it is not part
@@ -21,14 +22,14 @@ export interface AuthContextValue {
   hasGasSponsorship: boolean;
   /** Go to the welcome page to sign in, then come back here. */
   login: () => void;
-  /** Privy's own sign-in window. Only for wallets the welcome page can't reach directly (phone wallets). */
+  /** Privy's own window on its wallet list. Only for wallets the welcome page can't reach directly (phone wallets). */
   openPrivyLogin: () => void;
   /** Our own sign-in UI (the welcome page): X redirects out and back; email is a 6-digit code. */
   loginWithX: () => Promise<void>;
   sendEmailCode: (email: string) => Promise<void>;
   loginWithEmailCode: (code: string) => Promise<void>;
-  /** Sign in with the browser's wallet (MetaMask and co.) by signing one message, with no Privy window. */
-  loginWithWallet: () => Promise<void>;
+  /** Sign in with a browser wallet the person picked (MetaMask, Rabby, Phantom...) by signing one message, with no Privy window. */
+  loginWithWallet: (wallet: InjectedWallet) => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   /** Embedded-wallet actions (Privy hooks, passed through as-is). */

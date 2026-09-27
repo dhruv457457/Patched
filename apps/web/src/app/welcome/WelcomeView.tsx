@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Fingerprint, Loader2, Lock, Mail, ShieldCheck, Wallet, Zap } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Fingerprint, Loader2, Lock, Mail, ShieldCheck, Smartphone, Wallet, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { StoryPanel } from "@/components/brand/StoryPanel";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useProfile } from "@/lib/profile";
+import { useInjectedWallets, type InjectedWallet } from "@/lib/injectedWallets";
 import { handleProblem } from "@/lib/handles";
 import { STEP_UP_USD } from "@/lib/market/stepUp";
 import { GAS_SPONSORED } from "@/lib/config";
@@ -85,7 +86,7 @@ export function WelcomeView() {
   );
 }
 
-/** Privy sign-in in Patched's design: X first, then an email code, then "I have a wallet" (Privy's own window). */
+/** Privy sign-in in Patched's design: X first, then an email code, then "I have a wallet" (pick any wallet in this browser). */
 function SignInCard() {
   const { loginWithX, sendEmailCode, loginWithEmailCode, loginWithWallet, openPrivyLogin } = usePatchedAuth();
   const [email, setEmail] = useState("");
@@ -93,19 +94,22 @@ function SignInCard() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState<null | "x" | "send" | "code" | "wallet">(null);
   const [error, setError] = useState<string | null>(null);
-  const [noWallet, setNoWallet] = useState(false);
+  const [showWallets, setShowWallets] = useState(false);
+  const [signingWith, setSigningWith] = useState<string | null>(null);
+  const wallets = useInjectedWallets();
 
-  async function signInWithWallet() {
+  async function signInWithWallet(w: InjectedWallet) {
     setBusy("wallet");
+    setSigningWith(w.id);
     setError(null);
     try {
-      await loginWithWallet();
+      await loginWithWallet(w);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg === "no-wallet") setNoWallet(true);
-      else setError(/reject|denied|cancel/i.test(msg) ? "You cancelled the signature." : "Your wallet didn't sign in. Try again.");
+      setError(/reject|denied|cancel/i.test(msg) ? "You cancelled the signature." : `${w.name} didn't sign in. Try again.`);
     } finally {
       setBusy(null);
+      setSigningWith(null);
     }
   }
 
@@ -170,18 +174,46 @@ function SignInCard() {
 
       {error && <p className="text-sm text-[var(--red)] font-semibold" role="alert">{error}</p>}
 
-      <button onClick={signInWithWallet} disabled={!!busy}
-        className="h-11 rounded-full border-[1.5px] border-[var(--soft)] font-semibold hover:border-[var(--line)] hover:bg-[var(--soft)] inline-flex items-center justify-center gap-2 disabled:opacity-60">
-        {busy === "wallet" ? <Loader2 size={15} className="animate-spin" /> : <Wallet size={15} />} {busy === "wallet" ? "Check your wallet" : "I have a wallet"}
+      <button onClick={() => setShowWallets((v) => !v)} aria-expanded={showWallets} aria-controls="welcome-wallets"
+        className="h-11 rounded-full border-[1.5px] border-[var(--soft)] font-semibold hover:border-[var(--line)] hover:bg-[var(--soft)] inline-flex items-center justify-center gap-2">
+        <Wallet size={15} /> I have a wallet <ChevronDown size={15} className={cn("transition-transform", showWallets && "rotate-180")} />
       </button>
-      {noWallet && (
-        <p className="text-sm text-center" role="status">
-          No wallet in this browser. Sign in with X or email, or{" "}
-          <button onClick={openPrivyLogin} className="font-semibold underline">connect a phone wallet</button>.
-        </p>
+      {showWallets && (
+        <ul id="welcome-wallets" className="grid gap-1.5" aria-label="Pick a wallet">
+          {wallets.map((w) => (
+            <li key={w.id}>
+              <button onClick={() => signInWithWallet(w)} disabled={!!busy}
+                className="w-full h-12 px-3 rounded-2xl border-[1.5px] border-[var(--soft)] hover:border-[var(--line)] hover:bg-[var(--soft)] flex items-center gap-3 text-left disabled:opacity-60">
+                {w.icon ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- wallet icons are data URIs from the extension
+                  <img src={w.icon} alt="" width={26} height={26} className="size-[26px] rounded-lg flex-none" />
+                ) : (
+                  <span className="size-[26px] rounded-lg bg-[var(--soft)] grid place-items-center flex-none"><Wallet size={14} /></span>
+                )}
+                <span className="flex-1 min-w-0 truncate font-semibold">{w.name}</span>
+                {signingWith === w.id ? (
+                  <span className="text-xs font-semibold text-[var(--muted)] inline-flex items-center gap-1.5"><Loader2 size={13} className="animate-spin" /> Check your wallet</span>
+                ) : (
+                  <span className="text-xs text-[var(--muted)]">Detected</span>
+                )}
+              </button>
+            </li>
+          ))}
+          <li>
+            <button onClick={openPrivyLogin} disabled={!!busy}
+              className="w-full h-12 px-3 rounded-2xl border-[1.5px] border-[var(--soft)] hover:border-[var(--line)] hover:bg-[var(--soft)] flex items-center gap-3 text-left disabled:opacity-60">
+              <span className="size-[26px] rounded-lg bg-[var(--soft)] grid place-items-center flex-none"><Smartphone size={14} /></span>
+              <span className="flex-1 min-w-0 truncate font-semibold">{wallets.length ? "Other wallets" : "Phone or other wallet"}</span>
+              <ChevronRight size={15} className="text-[var(--muted)]" />
+            </button>
+          </li>
+          {wallets.length === 0 && (
+            <li className="text-xs text-center text-[var(--muted)]" role="status">No wallet extension in this browser. Scan a QR code with your phone wallet, or use X or email.</li>
+          )}
+        </ul>
       )}
       <p className="text-xs text-center text-[var(--muted)] leading-relaxed">
-        Even with your own wallet you get a Privy wallet for one-tap bids. Add money to it from any wallet.
+        With X or email, Privy makes your wallet for you and bids are one tap{GAS_SPONSORED ? ", with no network fee" : ""}.
       </p>
     </div>
   );

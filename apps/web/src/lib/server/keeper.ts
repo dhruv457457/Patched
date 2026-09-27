@@ -14,6 +14,8 @@ export interface KeeperAction {
   /** autoBid only: the brand being kept on top, and the patch. */
   brand?: string;
   patchId?: number;
+  /** autoBid only: the top bid (6-decimal USDC string) this call is responding to, for the idempotency key. */
+  topBid?: string;
   status: "sent" | "skipped" | "failed";
   hash?: string;
   reason?: string;
@@ -152,7 +154,28 @@ async function dueAutoBids(): Promise<Omit<KeeperAction, "status">[]> {
       const max = BigInt(r.max_amount);
       return BigInt(p.top_bid) > 0n ? max > BigInt(p.top_bid) : max >= BigInt(p.floor);
     })
-    .map((r) => ({ kind: "autoBid" as const, listingId: r.listing_id, patchId: r.patch_id, brand: r.wallet }));
+    .map((r) => {
+      const p = patches!.find((x) => x.listing_id === r.listing_id && x.patch_id === r.patch_id)!;
+      return { kind: "autoBid" as const, listingId: r.listing_id, patchId: r.patch_id, brand: r.wallet, topBid: String(p.top_bid) };
+    });
+}
+
+/**
+ * A key that identifies one due action, not one call attempt: the same key for every retry of the
+ * exact same situation, a different key once the situation moves on. Kept under 100 chars (Privy's
+ * idempotency key limit) and namespaced to this chain so testnet and mainnet never collide.
+ */
+function idempotencyKey(job: Omit<KeeperAction, "status">): string {
+  const chain = `patched:${CHAIN_ID}`;
+  switch (job.kind) {
+    case "autoBid":
+      return `${chain}:autobid:${job.listingId}:${job.patchId}:${job.brand}:${job.topBid ?? "0"}`;
+    case "release":
+    case "markFailed":
+      return `${chain}:${job.kind}:${job.listingId}:${job.milestone}`;
+    case "closeBidding":
+      return `${chain}:close:${job.listingId}`;
+  }
 }
 
 async function execute(job: Omit<KeeperAction, "status">): Promise<KeeperAction> {
@@ -181,6 +204,10 @@ async function execute(job: Omit<KeeperAction, "status">): Promise<KeeperAction>
       params: { transaction: { to, data, chain_id: CHAIN_ID } },
       // Sponsored by Privy unless turned off; then the keeper wallet pays its own MON.
       sponsor: process.env.KEEPER_GAS_SPONSORED !== "false",
+      // A retried keeper tick (a cron overlap, a timeout after Privy accepted the send) must not send the
+      // same action twice. The key is stable for one due action and changes once the situation does, so a
+      // later legitimate call (e.g. the next outbid round) still goes through.
+      idempotency_key: idempotencyKey(job),
       // Wallets owned by an authorization key need a signed request; app-controlled wallets don't.
       ...(process.env.KEEPER_USES_AUTH_KEY === "false"
         ? {}

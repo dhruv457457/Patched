@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
-import { Camera, Car, Lightbulb, Loader2, Plus, RefreshCw, Shirt, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, Car, Check, ChevronDown, Lightbulb, Loader2, Plus, RefreshCw, Shirt, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { SurfaceFigure } from "@/components/surface/SurfaceFigure";
 import type { PatchData } from "@/components/surface/Patch";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Seg } from "@/components/ui/Seg";
 import { toast } from "@/components/ui/Toast";
 import { formatUsdc } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useAuthedFetch } from "@/lib/authedFetch";
 import { CAR_VIEW_LAYOUTS, DEFAULT_LAYOUTS, MODEL_SHOT_LAYOUTS } from "@/lib/market/layouts";
@@ -82,7 +83,15 @@ const STYLE_CHOICES: { key: string; label: string }[] = [
 ];
 const DAY = 86_400_000;
 const PASTELS = ["p2", "p3", "p1", "p4", "p5"] as const;
-const INPUT = "border-2 border-[var(--line)] rounded-xl px-3 py-2 bg-[var(--paper)]";
+const INPUT = "w-full min-w-0 h-11 px-3.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)]";
+const AREA = "w-full min-w-0 px-3.5 py-2.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)] resize-y";
+const PANEL = "rounded-3xl bg-[var(--card)] border-[1.5px] border-[var(--soft)] shadow-[0_16px_48px_rgba(11,11,12,0.08)]";
+const STEPS = [
+  { id: "what", label: "What" },
+  { id: "spots", label: "Spots" },
+  { id: "deal", label: "Deal" },
+  { id: "page", label: "Page" },
+] as const;
 
 let idSeq = 100;
 const draft = (side: Side, s: { name: string; x: number; y: number; w: number; h: number; r?: number }, i = 0): DraftPatch => ({
@@ -120,6 +129,8 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
   const [story, setStory] = useState("");
   const [faq, setFaq] = useState<{ q: string; a: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [stepIdx, setStepIdx] = useState(0);
+  const reduce = useReducedMotion();
 
   // People (outfit, hoodie) get the AI model shots; vehicles get every side; an own idea gets one clean photo.
   const person = kind === "outfit" || kind === "hoodie";
@@ -142,6 +153,7 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
     });
 
   function pickSurface(next: Kind) {
+    if (next === kind) return;
     setKind(next);
     setDeal(defaultDraft(next));
     setPhotoUrl(null);
@@ -289,14 +301,41 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
 
   const update = (id: number, change: Partial<DraftPatch>) => setPatches((ps) => ps.map((p) => (p.id === id ? { ...p, ...change } : p)));
 
+  /** What still needs doing on a step, or null when it's ready. */
+  function stepProblem(i: number): string | null {
+    if (i === 0) {
+      if (isIdea && !ideaText.trim()) return 'Say what your idea is, like "Laptop lid on stage".';
+      if (!title.trim()) return "Give your listing a title.";
+    }
+    if (i === 1) {
+      if (!patches.length) return "Add at least one spot.";
+      if (patches.some((p) => !(p.floor > 0) || p.buyNow < p.floor)) return "Each spot needs a floor above $0 and a buy-now at or above its floor.";
+    }
+    if (i === 2) return planProblem(plan);
+    return null;
+  }
+
+  function goTo(i: number) {
+    setStepIdx(i);
+    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+  }
+
+  function next() {
+    const issue = stepProblem(stepIdx);
+    if (issue) return toast(issue);
+    goTo(stepIdx + 1);
+  }
+
   async function publish() {
     if (!authenticated) return login();
-    if (!title.trim()) return toast("Give your listing a title.");
-    if (!patches.length) return toast("Add at least one patch.");
-    if (patches.some((p) => !(p.floor > 0) || p.buyNow < p.floor)) return toast("Each patch needs a floor above $0 and a buy-now at or above its floor.");
-    const planIssue = planProblem(plan);
-    if (planIssue) return toast(planIssue);
-    if (isIdea && !ideaText.trim()) return toast('Say what your idea is, like "Laptop lid on stage".');
+    // Send the creator back to the first step that isn't ready.
+    for (let i = 0; i < STEPS.length - 1; i++) {
+      const issue = stepProblem(i);
+      if (issue) {
+        goTo(i);
+        return toast(issue);
+      }
+    }
     // Patches grouped by view, in view order (the contract's patch ids follow this order).
     const viewOrder = views.length ? views.map((v) => v.id) : [...new Set(patches.map((p) => p.side))];
     const ordered = viewOrder.flatMap((id) => patches.filter((p) => p.side === id));
@@ -343,225 +382,294 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
 
   const fromPrice = patches.length ? Math.min(...patches.map((p) => p.floor)) : 0;
   const firstView = views[0]?.id ?? (surface === "car" ? "left" : "front");
-  const previewPatches: PatchData[] = patches.filter((p) => p.side === firstView).map((p, i) => ({
-    id: p.id, name: p.name, x: p.x, y: p.y, w: p.w, h: p.h, r: p.r, c: PASTELS[i % PASTELS.length],
+  const colorOf = (p: DraftPatch) => PASTELS[patches.filter((x) => x.side === p.side).indexOf(p) % PASTELS.length];
+  const previewPatches: PatchData[] = patches.filter((p) => p.side === firstView).map((p) => ({
+    id: p.id, name: p.name, x: p.x, y: p.y, w: p.w, h: p.h, r: p.r, c: colorOf(p),
   }));
-  const figurePatches: PatchData[] = sidePatches.map((p, i) => ({
-    id: p.id, name: p.name, x: p.x, y: p.y, w: p.w, h: p.h, r: p.r, floor: p.floor, c: PASTELS[i % PASTELS.length],
+  const figurePatches: PatchData[] = sidePatches.map((p) => ({
+    id: p.id, name: p.name, x: p.x, y: p.y, w: p.w, h: p.h, r: p.r, floor: p.floor, c: colorOf(p),
   }));
+  const last = stepIdx === STEPS.length - 1;
+  const stepId = STEPS[stepIdx].id;
 
   return (
     <main className="wrap pt-8 pb-24">
-      <div className="mb-6">
-        <span className="eyebrow">Studio</span>
-        <h1 className="font-extrabold text-4xl tracking-tight mt-1">Create a listing</h1>
+      <div className="mb-6 grid gap-4">
+        <div>
+          <span className="eyebrow">Studio</span>
+          <h1 className="font-extrabold text-4xl tracking-tight mt-1">Create a listing</h1>
+        </div>
+        <Stepper step={stepIdx} onPick={goTo} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[280px_1fr_300px] items-start">
-        {/* ── left: what, when, and the look ── */}
-        <Card className="p-4 flex flex-col gap-4">
-          <div className="grid gap-2">
-            {SURFACE_OPTIONS.map(({ kind, label, note, Icon }) => (
-              <button key={kind} onClick={() => pickSurface(kind)} aria-pressed={surface === kind}
-                className="flex gap-2.5 items-center text-left border-2 rounded-xl px-3 py-2.5 font-semibold text-sm border-[var(--line)] bg-[var(--paper)] aria-pressed:bg-[var(--accent-soft)] aria-pressed:border-[var(--accent)]">
-                <Icon size={18} />
-                <span>{label}<small className="block font-normal text-[var(--muted)] text-xs">{note}</small></span>
-              </button>
-            ))}
-          </div>
-          <label className="grid gap-1.5"><span className="field-label">Title</span>
-            <input className={INPUT} value={title} maxLength={80} placeholder={kind === "car" ? "Ravi's van at Token2049" : isIdea ? "My laptop lid on stage" : "My Token2049 fit"}
-              onChange={(e) => setTitle(e.target.value)} /></label>
-          <label className="grid gap-1.5"><span className="field-label">Event</span>
-            <select className={INPUT} value={eventId} onChange={(e) => setEventId(Number(e.target.value))}>
-              {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-              <option value={0}>No specific event</option>
-            </select></label>
-          <label className="grid gap-1.5"><span className="field-label">Bidding runs for</span>
-            <select className={INPUT} value={days} onChange={(e) => setDays(Number(e.target.value))}>
-              {[1, 3, 5, 7].map((d) => <option key={d} value={d}>{d} day{d > 1 ? "s" : ""}</option>)}
-            </select></label>
-
-          <div className="grid gap-2 border-t-2 border-dashed border-[var(--soft)] pt-3">
-            {isIdea && (
-              <label className="grid gap-1.5"><span className="field-label">What is it?</span>
-                <input className={INPUT} value={ideaText} maxLength={60} placeholder="Laptop lid on stage" onChange={(e) => setIdeaText(e.target.value)} /></label>
-            )}
-            <span className="field-label">{person ? "1. A photo of you" : isIdea ? "A photo of it" : "Photo of your vehicle"}</span>
-            <button onClick={() => fileRef.current?.click()} disabled={!!busy}
-              className="w-full flex gap-3 items-center border-2 border-dashed border-[var(--line)] rounded-xl p-3 bg-[var(--paper)] hover:border-[var(--accent)] text-left">
-              <span className="w-11 h-11 rounded-lg bg-[var(--soft)] grid place-items-center overflow-hidden flex-none">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {photoUrl ? <img src={photoUrl} alt="Your photo" className="w-full h-full object-cover" /> : <Camera size={20} />}
-              </span>
-              <span className="text-sm"><b>{photoUrl ? "Change photo" : "Upload photo"}</b><br />
-                <span className="text-[var(--muted)] text-xs">{person ? "A clear selfie is enough" : isIdea ? "AI whitewashes it so logos fit" : "One photo from the front corner. AI draws every side"}</span></span>
-            </button>
-            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) onPhoto(f); e.target.value = ""; }} />
-          </div>
-
-          {person && photoUrl && (
-            <div className="grid gap-2">
-              <span className="field-label">2. What will you wear?</span>
-              <div className="flex flex-wrap gap-1.5">
-                {STYLE_CHOICES.map((s) => (
-                  <button key={s.key} onClick={() => setStyleKey(s.key)} aria-pressed={styleKey === s.key}
-                    className="text-xs font-semibold border-[1.5px] border-[var(--line)] rounded-full px-2.5 py-1 bg-[var(--card)] aria-pressed:bg-[var(--ink)] aria-pressed:text-[var(--paper)]">
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-              {aiStyles.length > 0 && (
-                <div className="grid gap-1.5">
-                  <span className="text-xs text-[var(--muted)] flex items-center gap-1"><Sparkles size={12} /> Ideas for you</span>
-                  {aiStyles.map((s, i) => (
-                    <button key={s} onClick={() => setStyleKey(`ai:${i}`)} aria-pressed={styleKey === `ai:${i}`}
-                      className="text-left text-xs border-[1.5px] border-[var(--line)] rounded-xl px-2.5 py-1.5 bg-[var(--card)] aria-pressed:bg-[var(--accent-soft)] aria-pressed:border-[var(--accent)]">
-                      {s}
+      <div className="grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_320px] items-start">
+        <section className={cn(PANEL, "p-5 sm:p-7 min-w-0")}>
+          <motion.div key={stepId} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="grid gap-6">
+            {stepId === "what" && (
+              <>
+                <StepHead title="What are you selling?" sub="Pick where the logos go. Each spot on it becomes its own auction." />
+                <div className="grid sm:grid-cols-2 gap-3" role="radiogroup" aria-label="What you're selling">
+                  {SURFACE_OPTIONS.map((o) => (
+                    <button key={o.kind} type="button" role="radio" aria-checked={kind === o.kind} onClick={() => pickSurface(o.kind)}
+                      className={cn("flex gap-3.5 items-center text-left p-4 rounded-2xl border-2 transition-colors",
+                        kind === o.kind ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--soft)] hover:border-[var(--muted)]")}>
+                      <span className="w-11 h-11 rounded-xl bg-[var(--card)] border-[1.5px] border-[var(--soft)] grid place-items-center flex-none"><o.Icon size={20} /></span>
+                      <span className="grid gap-0.5 min-w-0"><b>{o.label}</b><span className="text-sm text-[var(--muted)]">{o.note}</span></span>
                     </button>
                   ))}
                 </div>
-              )}
-              <input className={INPUT + " text-sm"} placeholder="Or describe your own…" value={customStyle} maxLength={120}
-                onFocus={() => setStyleKey("custom")} onChange={(e) => { setCustomStyle(e.target.value); setStyleKey("custom"); }} />
-              <Button variant="primary" onClick={generateLook} disabled={!!busy}>
-                <Wand2 size={15} /> {views.length ? "Generate again" : "3. Create my look"}
-              </Button>
-              <p className="text-xs text-[var(--muted)]">AI makes a full-body front and back view of you in a plain white version, ready for patches.</p>
-            </div>
-          )}
-
-          <details className="grid gap-2 border-t-2 border-dashed border-[var(--soft)] pt-3 group">
-            <summary className="field-label cursor-pointer list-none flex justify-between items-center">
-              Your sponsor page <span className="text-xs font-normal text-[var(--muted)] group-open:hidden">optional</span>
-            </summary>
-            <div className="grid gap-2.5 mt-2">
-              <label className="grid gap-1"><span className="text-xs font-semibold">Headline</span>
-                <input className={INPUT + " text-sm"} maxLength={80} value={headline} onChange={(e) => setHeadline(e.target.value)}
-                  placeholder={person ? "Walking billboard for your brand" : "Your logo, driving around Bengaluru"} /></label>
-              <label className="grid gap-1"><span className="text-xs font-semibold">Your story</span>
-                <textarea className={INPUT + " text-sm resize-y"} rows={4} maxLength={800} value={story} onChange={(e) => setStory(e.target.value)}
-                  placeholder="Who you are, why you're doing this, and what brands get from you." /></label>
-              <span className="text-xs font-semibold">Questions brands might ask</span>
-              {faq.map((f, i) => (
-                <div key={i} className="grid gap-1 rounded-xl bg-[var(--soft)] p-2">
-                  <input className={INPUT + " text-sm"} maxLength={120} placeholder="Question" value={f.q}
-                    onChange={(e) => setFaq((all) => all.map((x, j) => (j === i ? { ...x, q: e.target.value } : x)))} />
-                  <textarea className={INPUT + " text-sm resize-y"} rows={2} maxLength={400} placeholder="Answer" value={f.a}
-                    onChange={(e) => setFaq((all) => all.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)))} />
-                  <button className="text-xs text-[var(--muted)] justify-self-start hover:text-[var(--ink)]" onClick={() => setFaq((all) => all.filter((_, j) => j !== i))}>Remove</button>
+                {isIdea && (
+                  <Field label="What is it?" hint="The AI uses this to clean up your photo.">
+                    <input className={INPUT} value={ideaText} maxLength={60} placeholder="Laptop lid on stage" onChange={(e) => setIdeaText(e.target.value)} />
+                  </Field>
+                )}
+                <Field label="Title" hint="The first thing brands read.">
+                  <input className={INPUT} value={title} maxLength={80} placeholder={kind === "car" ? "Ravi's van at Token2049" : isIdea ? "My laptop lid on stage" : "My Token2049 fit"}
+                    onChange={(e) => setTitle(e.target.value)} />
+                </Field>
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <Field label="Event">
+                    <select className={INPUT} value={eventId} onChange={(e) => setEventId(Number(e.target.value))}>
+                      {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                      <option value={0}>No specific event</option>
+                    </select>
+                  </Field>
+                  <div className="grid gap-1.5">
+                    <span className="field-label">Bidding runs for</span>
+                    <Pills value={days} onPick={setDays} label="Bidding runs for" options={[1, 3, 5, 7].map((d) => ({ value: d, label: `${d} day${d > 1 ? "s" : ""}` }))} />
+                  </div>
                 </div>
-              ))}
-              {faq.length < 6 && (
-                <Button size="small" variant="ghost" className="justify-self-start" onClick={() => setFaq((all) => [...all, { q: "", a: "" }])}>
-                  <Plus size={13} /> Add a question
-                </Button>
-              )}
-            </div>
-          </details>
-        </Card>
-
-        {/* ── center: canvas editor ── */}
-        <Card className="p-4 relative">
-          <div className="flex gap-2 flex-wrap justify-center items-center mb-3">
-            {views.length > 1 && (
-              <Seg options={views.map((v) => ({ value: v.id, label: v.label }))} value={side} onChange={(v) => { setSide(v); setSelectedId(null); }} />
+              </>
             )}
-            {!person && photoUrl && canvas && (
-              <Button size="small" onClick={() => generateCarViews(photoUrl, side)} disabled={!!busy}>
-                <RefreshCw size={14} /> Redraw this view
+
+            {stepId === "spots" && (
+              <>
+                <StepHead
+                  title={person ? "Make your look, then place the spots" : kind === "car" ? "Draw your vehicle, then place the spots" : "Add a photo, then place the spots"}
+                  sub="Drag a spot to move it and its corner to resize. Tap one to name it and set its prices." />
+                <div className={cn("grid gap-6 items-start", surface !== "car" && "md:grid-cols-[minmax(0,1fr)_280px]")}>
+                  <div className="grid gap-3 min-w-0">
+                    <div className="flex gap-2 flex-wrap items-center">
+                      {views.length > 1 && (
+                        <Seg options={views.map((v) => ({ value: v.id, label: v.label }))} value={side} onChange={(v) => { setSide(v); setSelectedId(null); }} size="small" />
+                      )}
+                      <span className="flex-1" />
+                      {!person && photoUrl && canvas && (
+                        <Button size="small" variant="ghost" onClick={() => generateCarViews(photoUrl, side)} disabled={!!busy}><RefreshCw size={14} /> Redraw</Button>
+                      )}
+                      {canvas && <Button size="small" variant="ghost" onClick={() => autoLayout(canvas, side)} disabled={!!busy}><Wand2 size={14} /> AI spots</Button>}
+                      <Button size="small" onClick={addPatch}><Plus size={14} /> Add spot</Button>
+                    </div>
+                    <div className="relative rounded-2xl bg-[var(--stage)] p-4 sm:p-6">
+                      <div className={surface === "car" ? "max-w-[620px] mx-auto" : isIdea ? "max-w-[460px] mx-auto" : "max-w-[320px] mx-auto"}>
+                        <SurfaceFigure
+                          surface={surface}
+                          imageUrl={canvas}
+                          patches={figurePatches}
+                          mode="editable"
+                          selectedId={selectedId}
+                          onSelect={(id) => setSelectedId(Number(id))}
+                          onUpdatePatches={(ps) => setPatches((cur) => cur.map((p) => {
+                            const n = ps.find((x) => x.id === p.id);
+                            return n ? { ...p, x: n.x, y: n.y, w: n.w, h: n.h } : p;
+                          }))}
+                        />
+                      </div>
+                      {busy && (
+                        <div className="absolute inset-0 rounded-2xl bg-[var(--card)]/95 grid place-items-center text-center p-6">
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="animate-spin" />
+                            <b className="text-xl">{busy}</b>
+                            <span className="text-sm text-[var(--muted)]">Each image takes about 10 to 20 seconds.</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-6 min-w-0">
+                    <div className="grid gap-2.5">
+                      <span className="field-label">{person ? "A photo of you" : isIdea ? "A photo of it" : "A photo of your vehicle"}</span>
+                      <button type="button" onClick={() => fileRef.current?.click()} disabled={!!busy}
+                        className="w-full flex gap-3 items-center rounded-2xl border-[1.5px] border-dashed border-[var(--line)] p-3 bg-[var(--paper)] hover:border-[var(--accent)] text-left disabled:opacity-60">
+                        <span className="w-11 h-11 rounded-xl bg-[var(--soft)] grid place-items-center overflow-hidden flex-none">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          {photoUrl ? <img src={photoUrl} alt="Your photo" className="w-full h-full object-cover" /> : <Camera size={20} />}
+                        </span>
+                        <span className="text-sm min-w-0"><b>{photoUrl ? "Change photo" : "Upload photo"}</b>
+                          <span className="block text-[var(--muted)] text-xs">{person ? "A clear selfie is enough" : isIdea ? "AI cleans it up so logos fit" : "One photo from the front corner. AI draws every side"}</span></span>
+                      </button>
+                      <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPhoto(f); e.target.value = ""; }} />
+                      {!photoUrl && <p className="text-xs text-[var(--muted)]">No photo yet? You can place spots on the drawing and add a photo later.</p>}
+
+                      {person && photoUrl && (
+                        <div className="grid gap-2 pt-1">
+                          <span className="field-label">What will you wear?</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {STYLE_CHOICES.map((c) => (
+                              <button key={c.key} type="button" onClick={() => setStyleKey(c.key)} aria-pressed={styleKey === c.key}
+                                className="text-xs font-semibold border-[1.5px] border-[var(--soft)] rounded-full px-2.5 py-1 hover:border-[var(--muted)] aria-pressed:bg-[var(--ink)] aria-pressed:text-[var(--paper)] aria-pressed:border-[var(--ink)]">
+                                {c.label}
+                              </button>
+                            ))}
+                          </div>
+                          {aiStyles.length > 0 && (
+                            <div className="grid gap-1.5">
+                              <span className="text-xs text-[var(--muted)] flex items-center gap-1"><Sparkles size={12} /> Ideas for you</span>
+                              {aiStyles.map((c, i) => (
+                                <button key={c} type="button" onClick={() => setStyleKey(`ai:${i}`)} aria-pressed={styleKey === `ai:${i}`}
+                                  className="text-left text-xs border-[1.5px] border-[var(--soft)] rounded-xl px-2.5 py-1.5 aria-pressed:bg-[var(--accent-soft)] aria-pressed:border-[var(--accent)]">
+                                  {c}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <input className={INPUT + " text-sm"} placeholder="Or describe your own" value={customStyle} maxLength={120} aria-label="Describe your outfit"
+                            onFocus={() => setStyleKey("custom")} onChange={(e) => { setCustomStyle(e.target.value); setStyleKey("custom"); }} />
+                          <Button variant="primary" onClick={generateLook} disabled={!!busy} className="justify-center">
+                            <Wand2 size={15} /> {views.length ? "Make it again" : "Make my look"}
+                          </Button>
+                          <p className="text-xs text-[var(--muted)]">AI makes a front and back view of you in plain white, ready for logos.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid gap-2">
+                      <div className="flex justify-between items-baseline">
+                        <span className="field-label">Spots and prices</span>
+                        <span className="text-xs text-[var(--muted)]">{patches.length} of 16</span>
+                      </div>
+                      <div className={cn("grid gap-2", surface === "car" && "sm:grid-cols-2")}>
+                        {patches.map((p) => {
+                          const open = p.id === selectedId;
+                          return (
+                            <div key={p.id} className={cn("rounded-2xl border-[1.5px] transition-colors", open ? "border-[var(--accent)]" : "border-[var(--soft)]")}>
+                              <button type="button" aria-expanded={open} onClick={() => { setSelectedId(open ? null : p.id); if (p.side !== side) setSide(p.side); }}
+                                className="w-full flex items-center gap-2.5 px-3 h-11 text-left">
+                                <span className="w-3 h-3 rounded-[4px] flex-none border border-black/20" style={{ background: `var(--${colorOf(p)})` }} />
+                                <b className="flex-1 min-w-0 truncate text-sm">{p.name || "Untitled spot"}</b>
+                                {views.length > 1 && <span className="text-[11px] text-[var(--muted)] flex-none">{viewLabel(p.side)}</span>}
+                                <span className="font-mono text-xs text-[var(--muted)] flex-none">${p.floor}+</span>
+                                <ChevronDown size={14} className={cn("flex-none text-[var(--muted)] transition-transform", open && "rotate-180")} />
+                              </button>
+                              {open && (
+                                <div className="grid gap-2.5 px-3 pb-3">
+                                  <Field label="Name">
+                                    <input className={INPUT} maxLength={31} value={p.name} onChange={(e) => update(p.id, { name: e.target.value })} />
+                                  </Field>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Field label="Floor ($)">
+                                      <input type="number" min={1} className={INPUT + " font-mono"} value={p.floor} onChange={(e) => update(p.id, { floor: Number(e.target.value) })} />
+                                    </Field>
+                                    <Field label="Buy now ($)">
+                                      <input type="number" min={1} className={INPUT + " font-mono"} value={p.buyNow} onChange={(e) => update(p.id, { buyNow: Number(e.target.value) })} />
+                                    </Field>
+                                  </div>
+                                  <Field label="Tier">
+                                    <select className={INPUT} value={p.tier ?? ""} onChange={(e) => update(p.id, { tier: (e.target.value || undefined) as PatchTier | undefined })}>
+                                      <option value="">Auto (by size)</option>
+                                      {(Object.keys(PATCH_TIERS) as PatchTier[]).map((t) => <option key={t} value={t}>{PATCH_TIERS[t].label}</option>)}
+                                    </select>
+                                  </Field>
+                                  <Field label="What the brand gets" hint="Optional">
+                                    <input className={INPUT} maxLength={120} value={p.perks ?? ""} placeholder="Front and centre in every photo" onChange={(e) => update(p.id, { perks: e.target.value })} />
+                                  </Field>
+                                  <button type="button" className="justify-self-start text-xs font-semibold text-[var(--muted)] hover:text-[var(--red)] inline-flex items-center gap-1.5"
+                                    onClick={() => { setPatches((ps) => ps.filter((x) => x.id !== p.id)); setSelectedId(null); }}>
+                                    <Trash2 size={13} /> Remove spot
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between text-sm pt-1">
+                        <span className="text-[var(--muted)]">If every spot sells at buy-now</span>
+                        <b className="font-mono">{formatUsdc(buyNowTotal)}</b>
+                      </div>
+                      {buyNowTotal > cap && <p className="text-xs text-[var(--accent-text)]">First listings are capped at {formatUsdc(cap)} in buy-now prices until you complete one delivery.</p>}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {stepId === "deal" && (
+              <>
+                <StepHead title="Set your deal" sub="How you get paid and what every brand gets. Brands see all of this before they bid." />
+                <DealTerms kind={kind} draft={deal} onChange={setDeal} plan={plan} eventName={event?.name ?? null} />
+              </>
+            )}
+
+            {stepId === "page" && (
+              <>
+                <StepHead title="Your sponsor page" sub="Optional. A few lines in your voice help brands pick you. You can edit this later." />
+                <Field label="Headline">
+                  <input className={INPUT} maxLength={80} value={headline} onChange={(e) => setHeadline(e.target.value)}
+                    placeholder={person ? "Walking billboard for your brand" : "Your logo, driving around Bengaluru"} />
+                </Field>
+                <Field label="Your story">
+                  <textarea className={AREA} rows={4} maxLength={800} value={story} onChange={(e) => setStory(e.target.value)}
+                    placeholder="Who you are, why you're doing this, and what brands get from you." />
+                </Field>
+                <div className="grid gap-2">
+                  <span className="field-label">Questions brands might ask</span>
+                  {faq.map((f, i) => (
+                    <div key={i} className="grid gap-2 rounded-2xl border-[1.5px] border-[var(--soft)] p-3">
+                      <input className={INPUT} maxLength={120} placeholder="Question" aria-label={`Question ${i + 1}`} value={f.q}
+                        onChange={(e) => setFaq((all) => all.map((x, j) => (j === i ? { ...x, q: e.target.value } : x)))} />
+                      <textarea className={AREA} rows={2} maxLength={400} placeholder="Answer" aria-label={`Answer ${i + 1}`} value={f.a}
+                        onChange={(e) => setFaq((all) => all.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)))} />
+                      <button type="button" className="text-xs font-semibold text-[var(--muted)] justify-self-start hover:text-[var(--red)] inline-flex items-center gap-1.5"
+                        onClick={() => setFaq((all) => all.filter((_, j) => j !== i))}><Trash2 size={13} /> Remove</button>
+                    </div>
+                  ))}
+                  {faq.length < 6 && (
+                    <button type="button" className="justify-self-start text-sm font-semibold inline-flex items-center gap-1.5 hover:text-[var(--accent-text)]"
+                      onClick={() => setFaq((all) => [...all, { q: "", a: "" }])}><Plus size={14} /> Add a question</button>
+                  )}
+                </div>
+                <div className="grid gap-1.5 text-sm rounded-2xl bg-[var(--soft)] p-4">
+                  <b className="text-base mb-1">Before you publish</b>
+                  <Row label="Spots" value={String(patches.length)} />
+                  <Row label="If every spot sells at buy-now" value={formatUsdc(buyNowTotal)} />
+                  <Row label="Your stake, returned when you deliver" value={formatUsdc(Number(bond) / 1e6)} />
+                  <p className="text-xs text-[var(--muted)] mt-1">Listings go live after a quick review by the Patched team.</p>
+                </div>
+                {error && <p className="text-sm text-[var(--red)]" role="alert">{error}</p>}
+              </>
+            )}
+          </motion.div>
+
+          <div className="flex items-center justify-between gap-3 mt-7 pt-5 border-t-[1.5px] border-[var(--soft)]">
+            {stepIdx > 0 ? (
+              <button type="button" onClick={() => goTo(stepIdx - 1)} className="h-11 px-4 rounded-full font-semibold inline-flex items-center gap-2 hover:bg-[var(--soft)]">
+                <ArrowLeft size={16} /> Back
+              </button>
+            ) : <span />}
+            {last ? (
+              <Button variant="primary" className="h-12 px-6 text-base" onClick={publish} disabled={publishing || !!busy}>
+                {step === "saving" ? "Saving details…" : step === "approving" ? "Approving your stake…" : step === "creating" ? "Publishing on-chain…" : authenticated ? "Publish listing" : "Sign in to publish"}
+              </Button>
+            ) : (
+              <Button variant="primary" className="h-12 px-6 text-base" onClick={next} disabled={!!busy}>
+                Continue to {STEPS[stepIdx + 1].label.toLowerCase()} <ArrowRight size={16} />
               </Button>
             )}
-            <Button size="small" onClick={addPatch}><Plus size={14} /> Add patch</Button>
-            {canvas && <Button size="small" onClick={() => autoLayout(canvas, side)} disabled={!!busy}><Wand2 size={14} /> AI suggest spots</Button>}
           </div>
-          <div className={surface === "car" ? "max-w-[620px] mx-auto" : isIdea ? "max-w-[520px] mx-auto" : "max-w-[360px] mx-auto"}>
-            <SurfaceFigure
-              surface={surface}
-              imageUrl={canvas}
-              patches={figurePatches}
-              mode="editable"
-              selectedId={selectedId}
-              onSelect={(id) => setSelectedId(Number(id))}
-              onUpdatePatches={(ps) => setPatches((cur) => cur.map((p) => {
-                const n = ps.find((x) => x.id === p.id);
-                return n ? { ...p, x: n.x, y: n.y, w: n.w, h: n.h } : p;
-              }))}
-            />
-          </div>
-          <p className="text-xs text-[var(--muted)] text-center mt-2">
-            {canvas ? "Drag a patch to move it. Drag its corner to resize." : person ? "Upload a photo to see yourself here, or use the drawing." : isIdea ? "Say what it is and upload a photo. AI turns it into a clean canvas." : "Upload one photo of your vehicle. AI draws the left, right, front, back and roof."}
-          </p>
-          {busy && (
-            <div className="absolute inset-0 rounded-[16px] bg-[var(--card)]/95 grid place-items-center text-center p-6">
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="animate-spin" />
-                <b className="text-xl">{busy}</b>
-                <span className="text-sm text-[var(--muted)]">Each image takes about 10 to 20 seconds.</span>
-              </div>
-            </div>
-          )}
-        </Card>
+        </section>
 
-        {/* ── right: selected patch, totals, payout plan, publish ── */}
-        <Card className="p-4 flex flex-col gap-4">
-          <div>
-            <h3 className="font-bold text-lg mb-2">Patch{selected && views.length > 1 ? ` · ${viewLabel(selected.side)}` : ""}</h3>
-            {selected ? (
-              <div className="grid gap-2.5">
-                <label className="grid gap-1"><span className="field-label">Name</span>
-                  <input className={INPUT} maxLength={31} value={selected.name} onChange={(e) => update(selected.id, { name: e.target.value })} /></label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="grid gap-1"><span className="field-label">Floor ($)</span>
-                    <input type="number" min={1} className={INPUT + " font-mono"} value={selected.floor} onChange={(e) => update(selected.id, { floor: Number(e.target.value) })} /></label>
-                  <label className="grid gap-1"><span className="field-label">Buy now ($)</span>
-                    <input type="number" min={1} className={INPUT + " font-mono"} value={selected.buyNow} onChange={(e) => update(selected.id, { buyNow: Number(e.target.value) })} /></label>
-                </div>
-                <label className="grid gap-1"><span className="field-label">Tier</span>
-                  <select className={INPUT} value={selected.tier ?? ""} onChange={(e) => update(selected.id, { tier: (e.target.value || undefined) as PatchTier | undefined })}>
-                    <option value="">Auto (by size)</option>
-                    {(Object.keys(PATCH_TIERS) as PatchTier[]).map((t) => <option key={t} value={t}>{PATCH_TIERS[t].label}</option>)}
-                  </select></label>
-                <label className="grid gap-1"><span className="field-label">What the brand gets (optional)</span>
-                  <input className={INPUT} maxLength={120} value={selected.perks ?? ""} placeholder="Front and centre in every photo"
-                    onChange={(e) => update(selected.id, { perks: e.target.value })} /></label>
-                <Button size="small" variant="ghost" className="justify-self-start" onClick={() => { setPatches((ps) => ps.filter((p) => p.id !== selected.id)); setSelectedId(null); }}>
-                  <Trash2 size={13} /> Remove patch
-                </Button>
-              </div>
-            ) : <p className="text-sm text-[var(--muted)]">Select a patch on the canvas to name it and set its prices.</p>}
-          </div>
-
-          <div className="border-t-2 border-dashed border-[var(--soft)] pt-3 grid gap-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-[var(--muted)]">Patches</span><b className="font-mono">{patches.length}</b></div>
-            <div className="flex justify-between"><span className="text-[var(--muted)]">If all sell at buy-now</span><b className="font-mono">{formatUsdc(buyNowTotal)}</b></div>
-            <div className="flex justify-between"><span className="text-[var(--muted)]">Bond (returned on delivery)</span><b className="font-mono">{formatUsdc(Number(bond) / 1e6)}</b></div>
-            {buyNowTotal > cap && <p className="text-xs text-[var(--accent-text)]">First listings are capped at {formatUsdc(cap)} in buy-now prices until you complete one delivery.</p>}
-          </div>
-
-        </Card>
-      </div>
-
-      {/* ── the deal, and what brands will see ── */}
-      <section className="mt-8 grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_360px] items-start">
-        <Card className="p-5 sm:p-7 grid gap-5 min-w-0">
-          <div>
-            <span className="eyebrow">Step 3</span>
-            <h2 className="text-3xl font-extrabold tracking-tight mt-1">Set your deal</h2>
-            <p className="text-[var(--muted)] mt-1">What brands get, for how long, and how you get paid. Brands see all of this before they bid.</p>
-          </div>
-          <DealTerms kind={kind} draft={deal} onChange={setDeal} plan={plan} eventName={event?.name ?? null} />
-        </Card>
-
-        <aside className="grid gap-3 lg:sticky lg:top-4">
+        {/* What brands will see, updating as the creator goes. */}
+        <aside className="grid gap-3 lg:sticky lg:top-6">
           <span className="eyebrow">What brands see</span>
-          <Card className="overflow-hidden !p-0">
-            <div className="bg-[var(--stage)] h-[220px] p-4 flex items-center justify-center overflow-hidden">
+          <div className={cn(PANEL, "overflow-hidden")}>
+            <div className="bg-[var(--stage)] h-[240px] p-4 flex items-center justify-center overflow-hidden">
               <SurfaceFigure surface={surface} imageUrl={views[0]?.image ?? null} patches={previewPatches} mode="static" showPrices={false}
                 className={surface === "car" ? "w-full" : "h-full !w-auto max-w-full"} />
             </div>
-            <div className="p-4 grid gap-3">
+            <div className="p-5 grid gap-3">
               <div>
                 <b className="text-lg leading-tight block">{title.trim() || "Your listing"}</b>
                 <span className="text-sm text-[var(--muted)]">
@@ -569,30 +677,84 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
                   {event ? ` · ${event.name}` : ""}
                 </span>
               </div>
-              <div className="flex h-2.5 rounded-full overflow-hidden gap-[2px]" aria-hidden="true">
-                {plan.map((m, i) => <span key={i} style={{ width: `${m.bps / 100}%`, background: ["var(--p3)", "var(--p4)", "var(--p2)", "var(--p1)"][i % 4] }} />)}
-              </div>
               <p className="text-sm">
                 {patches.length} spot{patches.length === 1 ? "" : "s"} from <b className="font-mono">{formatUsdc(fromPrice)}</b>
                 {" · "}{plan.length === 1 ? "paid in full after the event" : `paid in ${plan.length} parts`}
               </p>
+              <div className="flex h-2 rounded-full overflow-hidden gap-[2px]" aria-hidden="true">
+                {plan.map((m, i) => <span key={i} style={{ width: `${m.bps / 100}%`, background: ["var(--p3)", "var(--p4)", "var(--p2)", "var(--p1)"][i % 4] }} />)}
+              </div>
               {deal.deliverables.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {deal.deliverables.map((d) => <span key={d} className="text-xs font-semibold rounded-full bg-[var(--soft)] px-2.5 py-1">{d}</span>)}
-                </div>
+                <ul className="grid gap-1.5 text-sm list-none m-0 p-0">
+                  {deal.deliverables.map((d) => <li key={d} className="flex gap-2 items-start"><Check size={15} className="text-[var(--green)] flex-none mt-0.5" /> {d}</li>)}
+                </ul>
               )}
-              <p className="text-xs text-[var(--muted)] border-t-[1.5px] border-[var(--soft)] pt-3">
-                Your stake: {formatUsdc(Number(bond) / 1e6)}, returned when you deliver.
-              </p>
             </div>
-          </Card>
-          {error && <p className="text-sm text-[var(--red)]" role="alert">{error}</p>}
-          <Button variant="primary" className="h-12 justify-center text-base" onClick={publish} disabled={publishing || !!busy}>
-            {step === "saving" ? "Saving details…" : step === "approving" ? "Approving your stake…" : step === "creating" ? "Publishing on-chain…" : authenticated ? "Publish listing" : "Sign in to publish"}
-          </Button>
-          <p className="text-xs text-[var(--muted)] text-center">Listings go live after a quick review by the Patched team.</p>
+          </div>
         </aside>
-      </section>
+      </div>
     </main>
+  );
+}
+
+function Stepper({ step, onPick }: { step: number; onPick: (i: number) => void }) {
+  return (
+    <ol className="flex items-center gap-1.5 sm:gap-2 list-none m-0 p-0" aria-label="Steps">
+      {STEPS.map((s, i) => (
+        <li key={s.id} className="flex items-center gap-2 flex-none">
+          {i > 0 && <span className={cn("w-3 sm:w-10 h-[1.5px]", i <= step ? "bg-[var(--ink)]" : "bg-[var(--soft)]")} aria-hidden="true" />}
+          <button type="button" onClick={() => onPick(i)} aria-current={i === step ? "step" : undefined}
+            className={cn("h-9 pl-1.5 pr-1.5 sm:pr-3.5 aria-[current=step]:pr-3.5 rounded-full inline-flex items-center gap-2 text-sm font-semibold transition-colors",
+              i === step ? "bg-[var(--ink)] text-[var(--paper)]" : "hover:bg-[var(--soft)]", i > step && "text-[var(--muted)]")}>
+            <span className={cn("w-6 h-6 rounded-full grid place-items-center text-xs font-bold",
+              i === step ? "bg-[var(--accent)] text-[#0B0B0C]" : i < step ? "bg-[var(--ink)] text-[var(--paper)]" : "bg-[var(--soft)]")}>
+              {i < step ? <Check size={13} strokeWidth={3} /> : i + 1}
+            </span>
+            {/* On phones only the current step shows its name. */}
+            <span className={cn(i !== step && "sr-only sm:not-sr-only")}>{s.label}</span>
+          </button>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function StepHead({ title, sub }: { title: string; sub: string }) {
+  return (
+    <div className="grid gap-1">
+      <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h2>
+      <p className="text-[var(--muted)]">{sub}</p>
+    </div>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="grid gap-1.5 min-w-0">
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="field-label">{label}</span>
+        {hint && <span className="text-xs text-[var(--muted)]">{hint}</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function Pills<T extends number | string>({ value, options, onPick, label }: { value: T; options: { value: T; label: string }[]; onPick: (v: T) => void; label: string }) {
+  return (
+    <span className="flex p-1 rounded-full bg-[var(--soft)]" role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button key={String(o.value)} type="button" role="radio" aria-checked={value === o.value} onClick={() => onPick(o.value)}
+          className={cn("flex-1 h-9 px-3 rounded-full text-sm font-bold transition-colors whitespace-nowrap", value === o.value ? "bg-[var(--card)] shadow-[0_1px_4px_rgba(11,11,12,0.15)]" : "text-[var(--muted)]")}>
+          {o.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{label}</span><b className="font-mono">{value}</b></div>
   );
 }

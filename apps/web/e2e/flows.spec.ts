@@ -74,14 +74,25 @@ test.describe("signed-out flows", () => {
     expect(errors).toEqual([]);
   });
 
-  test("studio: vehicle, own idea, payout presets and deliverables", async ({ page }) => {
+  test("studio: steps, vehicle, own idea, payout presets and deliverables", async ({ page }) => {
     const errors = watchErrors(page);
+    const steps = page.getByRole("list", { name: "Steps" });
     await page.goto("/studio");
-    await expect(page.getByRole("heading", { name: "Set your deal" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What are you selling?" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Vehicle/ }).click();
+    // Continue checks the step: no title yet, so it stays put.
+    await page.getByRole("button", { name: /^Continue to spots/ }).click();
+    await expect(page.getByRole("heading", { name: "What are you selling?" })).toBeVisible();
+    await page.getByLabel("Title").fill("My van at Token2049");
+
+    await page.getByRole("radio", { name: /^Vehicle/ }).click();
+    await page.getByRole("button", { name: /^Continue to spots/ }).click();
+    await expect(page.getByRole("heading", { name: /Draw your vehicle/ })).toBeVisible();
+
+    await steps.getByRole("button", { name: /Deal/ }).click();
+    await expect(page.getByRole("heading", { name: "Set your deal" })).toBeVisible();
     await expect(page.getByText("How long", { exact: true })).toBeVisible();
-    await page.getByRole("radio", { name: "3 days" }).click();
+    await page.getByRole("radiogroup", { name: "Event days" }).getByRole("radio", { name: "3 days" }).click();
     await expect(page.getByRole("radio", { name: "Per day" })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByText(/^Day 3 photos/)).toBeVisible();
 
@@ -97,8 +108,15 @@ test.describe("signed-out flows", () => {
     await xPost.click();
     await expect(xPost).toHaveAttribute("aria-checked", before === "true" ? "false" : "true");
 
-    await page.getByRole("button", { name: /^Your own idea/ }).click();
+    await steps.getByRole("button", { name: /What/ }).click();
+    await page.getByRole("radio", { name: /^Your own idea/ }).click();
+    await expect(page.getByRole("radio", { name: /^Your own idea/ })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByRole("radio", { name: /^Outfit/ })).toHaveAttribute("aria-checked", "false");
     await expect(page.getByText("What is it?")).toBeVisible();
+
+    await steps.getByRole("button", { name: /Page/ }).click();
+    await expect(page.getByRole("heading", { name: "Your sponsor page" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /publish/i })).toBeVisible();
     expect(errors).toEqual([]);
   });
 

@@ -38,22 +38,24 @@ The loop every screen serves:
 ## 3. App structure
 
 ### Landing (signed out)
-The story in one scroll, live examples from real listings, and one button: **Open Patched**. Signed-in visitors skip it
-and land on Home.
+**The current landing page stays.** Its "Get patched" button opens sign-in. Signed-in visitors skip it and land on Home.
 
-### Onboarding (first sign-in only)
-1. **Sign in** with X, email or wallet (Privy).
-2. **You:** display name and a unique **@handle**, checked live ("@dhruv is available"). Prefilled from X when signed in with X.
-3. **Why you're here:** creator, brand or both. A brand adds its name and logo here (can skip). Everyone picks events to follow.
+### Sign-in (first time only), two steps
+1. **Privy's login window, styled as Patched:** our logo, orange accent, "Welcome to Patched", X first, then email,
+   then "I have a wallet".
+2. **One profile screen:** name and @handle (prefilled from X, checked live) and "I'm here to: sell spots, sponsor,
+   or both". Then straight into Home.
 
-Then straight into Home. Nothing else is asked until it's needed.
-
-### The app shell
-- **Desktop:** left sidebar with Home, Events, Explore, Notifications, Campaigns (brands), Profile, a big **Create**
-  button, and the account chip with USDC balance at the bottom. No top navbar.
-- **Phone:** bottom tabs Home, Events, Create, Notifications, Profile. The listing page swaps them for its bid bar.
+### The app shell (laptop first)
+- **Laptop and desktop:** centred like X. A slim sidebar (Home, Events, Activity, Profile and a Create pill), the
+  feed in the middle, and a quiet right column (search, "Ending soon", your events). No top navbar, no boxed nav
+  buttons.
+- **Wallet:** your balance shows under your name at the bottom of the sidebar. Tapping it opens a small wallet panel:
+  balance, Add money, Send, network, settings, sign out. Crypto words stay out of the main screens: "$62.00", not
+  "62 USDC".
+- **Phone:** bottom tabs Home, Events, Create, Activity, Profile. The listing page swaps them for its bid bar.
+- **Fewer places:** Explore is the search box; campaigns live in Profile and in Create. Four nav items in total.
 - The shell never reloads; only the content area changes.
-- Network (testnet or mainnet) and theme live in Settings.
 
 ### Routes
 
@@ -62,11 +64,10 @@ Then straight into Home. Nothing else is asked until it's needed.
 | `/` | Landing (signed out) or Home feed (signed in) |
 | `/welcome` | Onboarding |
 | `/events`, `/e/<slug>` | Events, event page |
-| `/explore` | Search and browse listings, creators, brands |
 | `/<handle>` | Unified profile |
 | `/<handle>/<id>` | Listing (a post with a live auction) |
 | `/create` | Create a listing |
-| `/campaigns`, `/campaigns/<id>` | Brand campaigns |
+| `/campaigns/<id>` | A brand campaign (listed in Profile) |
 | `/notifications`, `/settings` | As in V1 |
 
 ## 4. Screens
@@ -165,8 +166,18 @@ A creator can offer "all spots for $X" as a one-tap buy next to the per-spot auc
 The brand sees this as plain rules ("Only Patched · at most $40 a spot · your wallet gets the receipts"). This is
 Privy's policy engine as a feature users configure, not just something that guards our backend.
 
-**To verify first:** that Privy policies can match on decoded calldata arguments (`bidder`, `amount`). If they can't,
-the same rules move into a small `PatchCampaign` contract, and the Privy policy only allows calling it.
+**Confirmed by research** ([privy-winners-research.md](privy-winners-research.md)): Privy policies can check decoded
+calldata (`bidFor.bidder`, `bidFor.amount`), the time (`current_unix_timestamp`) and a running total across
+transactions (aggregations). So all four rules are enforced by Privy itself: only `bidFor` for this brand, at most $X
+per bid, at most $Y in total, and nothing after the end date. One policy with `{{wallet.address}}` serves every
+campaign wallet. No `PatchCampaign` contract is needed.
+
+**Also from the research:**
+- **Auto-bid through Privy signers:** "Let Patched bid for me up to $X" adds a signer with a policy
+  (`addSigners` with `policyIds`), and Settings has a one-tap Revoke (`removeSigners`). `PatchAutoBidder` stays as the
+  fallback.
+- **Idempotency keys** on every keeper and campaign send (e.g. `release:<listing>:<milestone>`), so a retry can't pay twice.
+- **Test accounts** in the Privy dashboard so judges can sign in.
 
 ## 7. Social layer
 - **Follow** creators, brands and events; the feed follows your follows.
@@ -191,7 +202,7 @@ the same rules move into a small `PatchCampaign` contract, and the Privy policy 
 - **New `PatchBonus`** (additive, no redeploy of the market): a brand deposits a bonus for a spot it holds. The creator
   claims it with proof; it releases on the brand's approval or after 72 hours without dispute; an admin settles
   disputes. Refunded to the brand if the deal fails.
-- **`PatchCampaign`:** only if Privy policies can't check calldata arguments (see section 6).
+- **`PatchCampaign`:** not needed; Privy policies cover the campaign rules (see section 6).
 
 ## 10. Data (Supabase)
 - `patched_events`: add `cover_url`, `venue`, `links` (website, X, tickets).
@@ -213,5 +224,4 @@ Out of scope: banks and fiat, KYC/KYB, likes and comments (unless time allows), 
 
 ## 12. Open questions to check
 - X API: can we read a post's view count with the author's X login, and on which paid tier?
-- Privy policies: calldata argument conditions, and whether a policy can expire at a date.
 - Gas sponsorship on Monad mainnet for campaign wallets.

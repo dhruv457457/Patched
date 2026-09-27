@@ -107,7 +107,9 @@ export function DashboardView({ embedded = false }: { embedded?: boolean }) {
   const pageHref = `/${profile?.handle ?? wallet}`;
   const hrefOf = (id: number) => `${pageHref}/${id}`;
   const titleOf = (l: ListingRow) => l.metadata?.title ?? `Listing #${l.listing_id}`;
-  const live = listings.filter((l) => l.status === 1);
+  // Status 1 stays on-chain until the keeper closes bidding; past the end time it is no longer live.
+  const isOpen = (l: ListingRow) => l.status === 1 && Date.parse(l.bidding_ends_at) > Date.now();
+  const live = listings.filter(isOpen);
   const inEscrow = listings.filter((l) => l.status === 1 || l.status === 2).reduce((s, l) => s + Number(l.status === 1 ? l.top_bids_total : l.total_escrow), 0);
 
   // What needs the creator's attention, most urgent first.
@@ -185,7 +187,7 @@ export function DashboardView({ embedded = false }: { embedded?: boolean }) {
         ) : (
           <div className="grid gap-3">
             {listings.map((l) => {
-              const s = STATUS[l.status] ?? { label: "Unknown", variant: "wait" as const };
+              const s = l.status === 1 && !isOpen(l) ? { label: "Bidding ended", variant: "wait" as const } : STATUS[l.status] ?? { label: "Unknown", variant: "wait" as const };
               return (
                 <Card key={l.listing_id} className="p-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
                   <div className="flex items-center gap-4 min-w-0">
@@ -198,7 +200,7 @@ export function DashboardView({ embedded = false }: { embedded?: boolean }) {
                       </div>
                       <p className="text-sm muted mt-0.5">
                         {l.patches_with_bids}/{l.patch_count} patches with bids · {usd(l.status === 1 ? l.top_bids_total : l.total_escrow)}{" "}
-                        {l.status === 1 ? `in top bids · ends ${new Date(l.bidding_ends_at).toLocaleString()}` : "in escrow"}
+                        {l.status !== 1 ? "in escrow" : isOpen(l) ? `in top bids · ends ${new Date(l.bidding_ends_at).toLocaleString()}` : "in top bids · closing now"}
                       </p>
                     </div>
                   </div>

@@ -164,7 +164,7 @@ export function CreatorDashboard({ listing: lw, delivery: dw }: { listing: Wire<
     <main className="wrap pt-8 pb-24 grid gap-6">
       <div className="flex justify-between items-end gap-4 flex-wrap">
         <div>
-          <span className="eyebrow">Your listing · {STATUS[listing.status]}</span>
+          <span className="eyebrow">Your listing · {listing.status === 1 && ended ? "Bidding ended" : STATUS[listing.status]}</span>
           <h1 className="font-extrabold text-4xl tracking-tight mt-1">{listing.title}</h1>
         </div>
         <ListingTools listingId={listing.id} pageHref={publicHref} status={listing.status} active="manage" />

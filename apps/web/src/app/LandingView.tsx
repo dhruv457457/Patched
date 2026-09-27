@@ -16,9 +16,11 @@ import NumberFlow from "@number-flow/react";
 import {
   ArrowRight,
   BadgeCheck,
+  Bot,
   Camera,
   Car,
   Clock,
+  Fingerprint,
   Gavel,
   Lock,
   Receipt,
@@ -34,6 +36,7 @@ import { SurfaceFigure } from "@/components/surface/SurfaceFigure";
 import { Logo } from "@/components/brand/Logo";
 import { CHAIN_ID, GAS_SPONSORED } from "@/lib/config";
 import { formatCountdown } from "@/lib/format";
+import { STEP_UP_USD } from "@/lib/market/stepUp";
 import { cn } from "@/lib/utils";
 import type { PatchData } from "@/components/surface/Patch";
 import { DEFAULT_LAYOUTS } from "@/lib/market/layouts";
@@ -528,6 +531,48 @@ function Escrow() {
   );
 }
 
+/* ─────────────────────────────── Powered by Privy ─────────────────────────────── */
+
+const PRIVY_POINTS = [
+  { icon: Wallet, title: "A wallet in a second", body: "Sign in with X or email and Privy makes a self-custodial wallet for you. No seed phrase, no extension." },
+  { icon: Zap, title: "One tap, no gas", body: GAS_SPONSORED ? "Bidding is one signature, and Patched pays the network fee." : "Bidding is one signature." },
+  { icon: Bot, title: "It bids while you're away", body: "Turn on auto-bid and a Privy server wallet, restricted by policy to this one action, keeps you on top within seconds." },
+  { icon: Fingerprint, title: "A passkey for the big moves", body: `Face ID, Touch ID or Windows Hello confirms anything over $${STEP_UP_USD.toLocaleString("en-US")}.` },
+];
+
+function PoweredByPrivy() {
+  return (
+    <section className="max-w-6xl mx-auto px-4 sm:px-8 py-24">
+      <div className="flex items-center justify-between gap-6 flex-wrap">
+        <SectionHead
+          eyebrow="Powered by Privy"
+          title="Bidding that doesn't feel like crypto."
+          sub="No wallet pop-up on every bid, no gas to buy, no browser extension. Privy runs the wallet underneath so the auction is the only thing you think about."
+        />
+        <Reveal delay={0.1} className="flex-none">
+          <span className="hidden sm:inline-flex items-center gap-2 rounded-full border-2 border-[var(--line)] bg-[var(--card)] px-4 py-2 text-sm font-bold shadow-[3px_3px_0_var(--shadow)]">
+            <ShieldCheck className="w-4 h-4 text-[var(--accent-text)]" />
+            Secured by Privy
+          </span>
+        </Reveal>
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-12">
+        {PRIVY_POINTS.map((p, i) => (
+          <Reveal key={p.title} delay={0.08 * i} className="h-full">
+            <div className="card-surface p-5 h-full flex flex-col gap-3">
+              <span className="w-11 h-11 rounded-xl border-2 border-[var(--line)] bg-[var(--accent-soft)] grid place-items-center flex-none">
+                <p.icon className="w-5 h-5 text-[var(--accent-text)]" />
+              </span>
+              <h3 className="text-lg font-bold">{p.title}</h3>
+              <p className="text-sm text-[var(--muted)]">{p.body}</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /* ─────────────────────────────── Two sides ─────────────────────────────── */
 
 const SIDES = [
@@ -642,6 +687,7 @@ export function LandingView({ featured, stats, ticker, surfaceLinks }: LandingDa
         <HowItWorks />
         <Surfaces surfaceLinks={surfaceLinks} />
         <Escrow />
+        <PoweredByPrivy />
         <TwoSides />
         <FinalCta />
         <Footer />

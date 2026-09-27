@@ -97,7 +97,10 @@ export default function PrivyRuntime({ onChange }: { onChange: (v: AuthContextVa
         loginMethods: ["twitter", "email", "wallet"],
         appearance: { theme: "light", accentColor: "#FF5A1F", showWalletLoginFirst: false },
         embeddedWallets: {
-          ethereum: { createOnLogin: "users-without-wallets" },
+          // Everyone gets a Patched (embedded) wallet, including people who sign in with an external wallet
+          // like MetaMask: useBid always prefers the embedded wallet, so bidding is gas-sponsored and
+          // one-tap for them too. Their external wallet still works as a funding source (top up, export).
+          ethereum: { createOnLogin: "all-users" },
           // Bids are confirmed in our own UI; don't show Privy's extra confirmation modals.
           showWalletUIs: false,
         },

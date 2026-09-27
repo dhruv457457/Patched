@@ -221,9 +221,9 @@ campaign wallet. No `PatchCampaign` contract is needed.
 - **`PatchCampaign`:** not needed; Privy policies cover the campaign rules (see section 6).
 
 ## 10. Data (Supabase)
-- `patched_events`: add `cover_url`, `venue`, `links` (website, X, tickets).
+- `patched_events`: add `venue` and `links` (website, X); the existing `banner_url` is the cover. (Done: migration 0010.)
 - `follows` (follower, target type, target).
-- `campaigns` (brand, event, budget, max per spot, goal, ends, Privy wallet id, policy id, status).
+- `brand_campaigns` (brand, event, budget, max per spot, goal, ends, Privy wallet id, policy id, status) and `brand_campaign_actions` (what each campaign did). Named `brand_` because the database already has an unrelated `campaigns` table. (Done: migration 0011.)
 - `spotted` (event, poster, subject, photo, X post link).
 - Listing metadata: vehicle type, event days, deliverables, payout preset.
 - The feed is built from existing indexed events (listings, bids, receipts, proofs) plus spotted posts. No new chain data.

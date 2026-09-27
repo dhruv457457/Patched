@@ -12,11 +12,12 @@ Creators sell ad space on things people look at: their outfit at an event, their
 
 ## Surfaces
 
-| Surface | How it pays | Proof |
+| Surface | What | Proof |
 |---|---|---|
-| Outfit | Per event (for example Token2049) | Print photo and ticket, then venue photos |
-| Car | Per week, 1 to 8 weeks | A dated photo every week |
-| Team hoodie | Per hackathon, split across the team | Team check-in, then stage or demo photos |
+| Outfit | A person at an event (for example Token2049) | Print photo, venue photos, an X post |
+| Vehicle | A car, van or bus for 1 to 3 event days, parked at the venue or looping it | Dated, located photos each day, an X post |
+| Team hoodie | A team at a hackathon, paid out across the team | Team check-in, stage or demo photos, an X post |
+| Your own idea | Anything people will see at the event: a laptop lid on stage, a booth wall, a board | Photos with the logo in view, an X post |
 
 ## Features
 
@@ -26,13 +27,13 @@ Creators sell ad space on things people look at: their outfit at an event, their
 - **AI outfit looks.** AI suggests outfit styles from your photo and generates front and back model shots in the style you pick.
 - **AI car views.** Upload one photo of your car and AI generates the other sides (front, left, right, back, roof), so brands can bid on every panel.
 - **AI spot suggestions.** AI proposes where the patches should go. You can drag, resize and rename every spot yourself.
-- **Your terms.** For each spot, set a starting price, a buy-now price and a tier (mini, prime or mega). Pick the event and the proof deadlines.
+- **Your terms.** For each spot, set a starting price, a buy-now price and a tier (mini, prime or mega). Pick the event.
+- **Your deal.** Choose how you get paid: part before the event for printing (10% to 50%), all after, per event day, or a custom split of up to 4 steps. A live payout bar shows the split and the proof date of each step. Pick what every brand gets (photos, parked hours, route check-ins, an X post); brands see it before they bid.
 - **Stake.** You lock a small bond when you publish. It comes back when you deliver.
 - **Editable sponsor page.** Edit your listing page in place: headline, intro, perks per spot, section titles, accent colour, and which sections are shown. The FAQ is editable too.
 - **Share kit.** A poster maker with templates, a QR code and downloadable images. Every listing also gets its own link preview image for X and chats.
 - **Creator studio.** Close bidding, see the winners, upload proof for each milestone and release your payments.
-- **Dashboard.** Your listings, what needs your attention, your payouts, your delivery record and your balance.
-- **Profile page.** Your public page at `/<handle>` shows your listings and your track record.
+- **One profile.** `/<handle>` shows your listings, the spots you sponsor and your record. As the owner you also get your Earnings (what needs doing, payouts) and Bids tabs there, so there's no separate dashboard to find.
 
 ### For brands
 
@@ -44,7 +45,8 @@ Creators sell ad space on things people look at: their outfit at an event, their
 - **One-tap rebid.** The outbid toast has a "Bid $X" button that bids the new minimum in one tap.
 - **Verified brand badge.** Link your work email. If its domain matches your website, your bids and patches show "Verified brand".
 - **Brand profile.** Your brand name and logo appear on the patches you lead.
-- **My bids.** Spots you lead, spots where you were outbid, your receipts, and resale.
+- **Campaigns.** "Spend up to $300 at Token2049, never more than $40 a spot, until the event ends." A campaign wallet bids across the event for you, cheapest spots first (or prime spots only), and returns what's left at the end. Its rules are a Privy policy you can read in plain words or as JSON.
+- **Bids tab.** Spots you lead, spots where you were outbid, your receipts, and resale, on your profile.
 
 ### Live auctions
 
@@ -68,27 +70,30 @@ Creators sell ad space on things people look at: their outfit at an event, their
 
 ### Discovery and social
 
+- **Home feed.** Signed in, `/` is a feed of new listings, bids ("Kite took Chest on Dhruv · $120", with Outbid) and proofs, with upcoming events, what's ending soon and search alongside.
 - **Explore board.** Live listings with search, surface filters, bid counts and a live activity feed.
-- **Events.** `/events` lists every event, and `/e/<slug>` shows every listing for one event. Each listing links to its event.
+- **Events.** `/events` lists every event with its cover. `/e/<slug>` has the cover, venue and links, who's going, leaderboards (most sponsored, brand on the most spots, biggest bidding war), every spot and a live wall of bids. Admins edit the cover and details.
 - **Notifications.** A live bell and a full `/notifications` page for outbid, new bid, auto-bid placed or paused, won, listing live or rejected, bidding closed, proof posted, dispute opened, payment made, no-show refund and resale sold.
 
 ### Getting around
 
-- **One "You" menu for everything that's yours:** balances, your latest listings with their tools, My bids, your page, notifications, settings, security, the network and (for admins) the admin console. On desktop it opens from the account chip; on phones it's the "You" tab.
-- **Phone navigation:** a bottom bar (Explore, My bids, Create, Dashboard, You). Listing pages swap it for a sticky bid bar and quick-jump tabs.
+- **An app shell like X.** A slim sidebar (Home, Events, Explore, Activity, Profile and Create) that never reloads. Your name and dollar balance sit at the bottom; tapping it opens the wallet: Add money, My bids, Campaigns, Earnings, Settings, theme, network and sign out.
+- **Phone navigation:** bottom tabs (Home, Events, Create, Activity, Profile) and your avatar at the top for the wallet.
+- **A creator's page stands alone.** A listing page is the creator's own site with only a small "Made with Patched" mark, so sharing it on X feels like sharing a site they built.
+- **Welcome.** New visitors sign in on a page that plays the whole story (sign in, draw spots, brands bid, show up, get paid) across outfits, vehicles and team hoodies, then pick a name, a handle (checked live) and whether they sell spots, sponsor or both.
 - **Settings** (`/settings`): profile, brand (name, logo, website, verified badge), security (passkey, wallet export) and network, in one place.
 - **Listing tools:** a creator's listing page, Manage screen and Share kit are tabs of one bar.
-- **Testnet and mainnet:** each runs as its own site from the same code. A switch in the navbar and the "You" menu moves between them and keeps you on the same page where it exists; testnet shows a "test money only" banner.
+- **Testnet and mainnet:** each runs as its own site from the same code. A switch in the wallet panel and Settings moves between them and keeps you on the same page where it exists.
 
 ### Admin
 
 - Approve or reject listings. A rejected listing returns the creator's stake.
 - Review proofs, fast-track milestones and settle disputes.
-- Create events.
+- Create events, and give each one a cover, venue, city, description and links.
 
 ### Behind the scenes
 
-- **Keeper.** A policy-limited Privy server wallet closes auctions when they end, releases payments after the review window, marks no-shows and runs auto-bids.
+- **Keeper.** A policy-limited Privy server wallet closes auctions when they end, releases payments after the review window, marks no-shows and runs auto-bids. It also runs campaigns. Every send carries an idempotency key, so a retry never acts twice.
 - **Indexer.** Syncs every contract event into Supabase: bids, patches, receipts, payouts and notifications. It's rate-limited when called from the app.
 - **Server-side AI.** All AI runs on the server through OpenRouter, with the cheapest model that does each job.
 - **Themes and motion.** Light and dark themes. Every animation respects reduced-motion settings.
@@ -100,10 +105,12 @@ Privy does much more than sign-in here. Every row is live in the app and links t
 
 | Privy feature | What it does in Patched | Code |
 |---|---|---|
+| Sign-in in our own design | The welcome page signs people in with Privy's headless hooks (`useLoginWithOAuth` for X, `useLoginWithEmail` for a code), and Privy's own window is branded with our logo, colour and copy. | [WelcomeView.tsx](apps/web/src/app/welcome/WelcomeView.tsx), [PrivyRuntime.tsx](apps/web/src/components/providers/PrivyRuntime.tsx) |
 | Login with X, email or a wallet + embedded wallets for everyone | A brand or creator gets a self-custodial wallet in seconds, with no seed phrase and no extension. `createOnLogin: "all-users"` means even someone who connects MetaMask also gets an embedded wallet, so bidding is gas-sponsored and one-tap for them too; their external wallet just funds it. The X handle becomes the creator's page. | [PrivyRuntime.tsx](apps/web/src/components/providers/PrivyRuntime.tsx), [api/profile](apps/web/src/app/api/profile/route.ts) |
 | Gas sponsorship | Bids, listings, proofs and disputes cost users no MON on testnet (`sponsor: true`); it's a setting per network. | [useTx.ts](apps/web/src/lib/market/useTx.ts), [useBid.ts](apps/web/src/lib/market/useBid.ts) |
 | Silent typed-data signing | A bid is one USDC permit signature plus one transaction, with no separate approve step. | [useBid.ts](apps/web/src/lib/market/useBid.ts), [permit.ts](apps/web/src/lib/market/permit.ts) |
 | Server wallet + policy (keeper) | A Privy server wallet closes auctions, releases milestone payouts and marks no-shows. Its policy allows only `closeBidding`, `release` and `markFailed` on our market, plus `execute` on the auto-bidder. Anything else is rejected with `policy_violation` (checked by a script). Every send carries an `idempotency_key` keyed to the specific due action (and, for auto-bid, the top bid it's responding to), so a retried keeper tick can't pay or bid twice. | [keeper.ts](apps/web/src/lib/server/keeper.ts), [privy-keeper-add-chain.mjs](apps/web/scripts/privy-keeper-add-chain.mjs), [privy-policy-check.mjs](apps/web/scripts/privy-policy-check.mjs) |
+| Campaign wallets with policies the brand configures | Each campaign gets its own Privy server wallet and its own policy, written from the brand's settings: `bidFor` on our market only for the brand (`bidFor.bidder`), at most the per-spot maximum (`bidFor.amount`), until the end time (`current_unix_timestamp`); `approve` only for the market; `transfer` only back to the brand. The brand sees the same rules in plain words and as JSON. | [campaignPolicy.ts](apps/web/src/lib/market/campaignPolicy.ts), [campaigns.ts](apps/web/src/lib/server/campaigns.ts), [CampaignBuilder.tsx](apps/web/src/app/campaigns/new/CampaignBuilder.tsx) |
 | Auto-bid on the policy-limited server wallet | "Keep me on top up to $X": when a brand is outbid, the keeper bids the next step for them within seconds. The contract caps every bid at the brand's max. | [useAutoBid.ts](apps/web/src/lib/market/useAutoBid.ts), [PatchAutoBidder.sol](contracts/src/PatchAutoBidder.sol) |
 | One signature, sponsored gas: sweep | Our `PatchSweeper` contract places several bids at once; Privy signs the single permit and sponsors the gas, so bidding on many patches is one click. | [SweepPanel.tsx](apps/web/src/components/market/SweepPanel.tsx), [PatchSweeper.sol](contracts/src/PatchSweeper.sol) |
 | Passkey MFA step-up | Bids, sweeps and auto-bid maximums over a threshold ask for a passkey (Face ID, Touch ID, Windows Hello) first. | [stepUp.ts](apps/web/src/lib/market/stepUp.ts), [AccountMenu.tsx](apps/web/src/components/navigation/AccountMenu.tsx) |

@@ -16,8 +16,11 @@ interface EventRow {
   starts_at: string;
   ends_at: string;
   city: string | null;
+  venue: string | null;
+  banner_url: string | null;
   description: string | null;
 }
+const PASTELS = ["var(--p3)", "var(--p2)", "var(--p1)", "var(--p4)", "var(--p5)"];
 
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
@@ -25,7 +28,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: 
 export default async function EventsPage() {
   const db = supabase();
   const [{ data: events }, { data: listings }] = await Promise.all([
-    db.from("patched_events").select("event_id, name, slug, starts_at, ends_at, city, description")
+    db.from("patched_events").select("event_id, name, slug, starts_at, ends_at, city, venue, banner_url, description")
       .eq("chain_id", CHAIN_ID).eq("active", true).order("starts_at", { ascending: true }),
     db.from("listing_cards").select("event_id, status").eq("chain_id", CHAIN_ID).in("status", [1, 2, 3]),
   ]);
@@ -43,17 +46,21 @@ export default async function EventsPage() {
     const n = count(e.event_id);
     return (
       <Link key={e.event_id} href={`/e/${e.slug ?? e.event_id}`} className="no-underline">
-        <Card className="p-5 grid gap-2 h-full hover:bg-[var(--soft)]">
+        <Card className="!p-0 overflow-hidden grid h-full hover:bg-[var(--soft)]">
+          <span className="block h-[110px] border-b-2 border-[var(--line)]"
+            style={{ background: e.banner_url ? `center/cover url(${e.banner_url})` : PASTELS[e.event_id % PASTELS.length] }} />
+          <div className="p-5 grid gap-2 content-start">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-xl font-extrabold leading-tight">{e.name}</h3>
             {n.live > 0 && <Chip variant="green">{n.live} live</Chip>}
           </div>
           <p className="text-sm text-[var(--muted)] flex flex-wrap gap-x-3 gap-y-1">
             <span className="inline-flex items-center gap-1"><CalendarDays size={14} /> {day(e.starts_at)}{e.ends_at.slice(0, 10) !== e.starts_at.slice(0, 10) ? ` – ${day(e.ends_at)}` : ""}</span>
-            {e.city && <span className="inline-flex items-center gap-1"><MapPin size={14} /> {e.city}</span>}
+            {(e.venue || e.city) && <span className="inline-flex items-center gap-1"><MapPin size={14} /> {[e.venue, e.city].filter(Boolean).join(", ")}</span>}
           </p>
           {e.description && <p className="text-sm line-clamp-2">{e.description}</p>}
           <p className="text-sm font-semibold mt-auto">{n.all === 0 ? "No listings yet. Be the first." : `${n.all} ${n.all === 1 ? "listing" : "listings"}`}</p>
+          </div>
         </Card>
       </Link>
     );

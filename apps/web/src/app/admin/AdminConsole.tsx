@@ -1,7 +1,7 @@
 "use client";
 
 import PageLoading from "@/app/loading";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { encodeFunctionData, keccak256, stringToHex, toBytes } from "viem";
 import { patchedMarketAbi } from "@patched/shared";
@@ -19,6 +19,7 @@ import { friendlyError } from "@/lib/market/useBid";
 import { useTx } from "@/lib/market/useTx";
 import { useIndexerSync } from "@/lib/market/useIndexerSync";
 import { DISPUTE_CATEGORIES } from "@/lib/market/dispute";
+import { EventDetailsForm } from "./EventDetailsForm";
 
 export interface AdminEvent {
   id: number;
@@ -26,6 +27,13 @@ export interface AdminEvent {
   startsAt: string;
   endsAt: string;
   active: boolean;
+  slug: string | null;
+  city: string | null;
+  venue: string | null;
+  description: string | null;
+  bannerUrl: string | null;
+  website: string | null;
+  x: string | null;
 }
 
 const ADMIN_ROLE = keccak256(toBytes("ADMIN_ROLE"));
@@ -39,6 +47,7 @@ export function AdminConsole({ pending: wire, review, events }: { pending: Wire<
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [eventForm, setEventForm] = useState({ name: "", start: "", end: "" });
+  const [editingEvent, setEditingEvent] = useState<number | null>(null);
 
   useEffect(() => {
     if (!walletAddress) return setIsAdmin(null);
@@ -214,17 +223,28 @@ export function AdminConsole({ pending: wire, review, events }: { pending: Wire<
             <thead><tr className="text-left font-mono text-[11px] uppercase tracking-wider text-[var(--muted)]">
               <th className="p-3 border-b-2 border-[var(--line)]">#</th><th className="p-3 border-b-2 border-[var(--line)]">Event</th>
               <th className="p-3 border-b-2 border-[var(--line)]">Dates</th><th className="p-3 border-b-2 border-[var(--line)]">Status</th>
+              <th className="p-3 border-b-2 border-[var(--line)]">Page</th>
             </tr></thead>
             <tbody>
               {events.map((e) => (
-                <tr key={e.id} className="border-b border-[var(--soft)]">
-                  <td className="p-3 font-mono">{e.id}</td>
-                  <td className="p-3 font-semibold">{e.name}</td>
-                  <td className="p-3 font-mono text-xs">{e.startsAt.slice(0, 10)} → {e.endsAt.slice(0, 10)}</td>
-                  <td className="p-3">{e.active ? <Pill variant="top">Accepting listings</Pill> : <Pill variant="wait">Closed</Pill>}</td>
-                </tr>
+                <Fragment key={e.id}>
+                  <tr className="border-b border-[var(--soft)]">
+                    <td className="p-3 font-mono">{e.id}</td>
+                    <td className="p-3 font-semibold">{e.name}</td>
+                    <td className="p-3 font-mono text-xs">{e.startsAt.slice(0, 10)} → {e.endsAt.slice(0, 10)}</td>
+                    <td className="p-3">{e.active ? <Pill variant="top">Accepting listings</Pill> : <Pill variant="wait">Closed</Pill>}</td>
+                    <td className="p-3">
+                      <Button size="small" variant="ghost" onClick={() => setEditingEvent(editingEvent === e.id ? null : e.id)}>
+                        {editingEvent === e.id ? "Close" : e.bannerUrl || e.description ? "Edit page" : "Add cover and details"}
+                      </Button>
+                    </td>
+                  </tr>
+                  {editingEvent === e.id && (
+                    <tr><td colSpan={5} className="p-3"><EventDetailsForm event={e} onSaved={() => { setEditingEvent(null); router.refresh(); }} /></td></tr>
+                  )}
+                </Fragment>
               ))}
-              {events.length === 0 && <tr><td className="p-3 muted" colSpan={4}>No events yet.</td></tr>}
+              {events.length === 0 && <tr><td className="p-3 muted" colSpan={5}>No events yet.</td></tr>}
             </tbody>
           </table>
         </Card>

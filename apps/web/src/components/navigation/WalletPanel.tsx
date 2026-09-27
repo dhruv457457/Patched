@@ -6,6 +6,7 @@ import { Check, Copy, ExternalLink, Gavel, LayoutDashboard, LogOut, Moon, Settin
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useBalances } from "@/lib/useBalances";
 import { useIsAdmin } from "@/lib/useIsAdmin";
+import { useProfile } from "@/lib/profile";
 import { useTheme } from "@/lib/theme";
 import { CHAIN, EXPLORER, GAS_SPONSORED } from "@/lib/config";
 import { formatShortAddress } from "@/lib/format";
@@ -19,6 +20,8 @@ const ROW = "flex items-center gap-3 h-10 px-2.5 rounded-xl text-[15px] font-sem
  */
 export function WalletPanel({ onNavigate }: { onNavigate?: () => void }) {
   const { walletAddress, logout } = usePatchedAuth();
+  const { profile } = useProfile();
+  const me = `/${profile?.handle ?? walletAddress?.toLowerCase() ?? ""}`;
   const { usdc, mon } = useBalances(walletAddress);
   const isAdmin = useIsAdmin(walletAddress);
   const { theme, toggleTheme } = useTheme();
@@ -58,8 +61,8 @@ export function WalletPanel({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="grid gap-0.5 border-t-[1.5px] border-[var(--soft)] pt-2">
-        <Link href="/bids" onClick={go} className={ROW}><Gavel size={17} /> My bids</Link>
-        <Link href="/dashboard" onClick={go} className={ROW}><LayoutDashboard size={17} /> Creator dashboard</Link>
+        <Link href={`${me}?tab=bids`} onClick={go} className={ROW}><Gavel size={17} /> My bids</Link>
+        <Link href={`${me}?tab=earnings`} onClick={go} className={ROW}><LayoutDashboard size={17} /> Earnings</Link>
         <Link href="/settings" onClick={go} className={ROW}><Settings size={17} /> Settings</Link>
         {isAdmin && <Link href="/admin" onClick={go} className={ROW}><ShieldHalf size={17} /> Admin</Link>}
         <button onClick={toggleTheme} className={ROW}>

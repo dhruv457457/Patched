@@ -3,7 +3,7 @@
 We studied 24 ETHGlobal projects that won a Privy prize. For each, we read the showcase page, and for 15 of them we also read the repo code. One page (Sweem) was behind a Cloudflare check, so it was read through a fetch instead. Only Privy usage is covered here.
 
 **Done from the gaps below (2026-09-27, same day):**
-- Gap 1 (config): `createOnLogin` is now `"all-users"` — see [PrivyRuntime.tsx](../apps/web/src/components/providers/PrivyRuntime.tsx).
+- Gap 1 (config): tried `createOnLogin: "all-users"` and reverted it. It gave MetaMask users a second, empty wallet and moved their account onto it. The account's wallet is now always the one linked first; one-tap bidding for MetaMask users needs a deliberate "fund your Patched wallet" step instead.
 - Gap 2 (idempotency): every keeper send now carries an `idempotency_key` — see [keeper.ts](../apps/web/src/lib/server/keeper.ts).
 - Still open: session signers (needs a key quorum registered in the Privy dashboard first, an operator step, not just code), campaign wallets with policies, "Patch anyone on X", the key-quorum team vault, deposit addresses, and test accounts.
 

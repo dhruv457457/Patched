@@ -56,10 +56,18 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
     },
   });
 
-  // Prefer the Privy embedded wallet: it gets gas sponsorship and silent signing.
-  const embedded = wallets.find((w) => w.walletClientType === "privy");
-  const wallet = embedded ?? wallets[0];
-  const walletAddress = wallet?.address as `0x${string}` | undefined;
+  // Your wallet is the one you linked first (same rule as the server): MetaMask users keep their MetaMask wallet,
+  // X and email users their Privy embedded wallet (gas-sponsored, silent signing).
+  const linked = (user?.linkedAccounts ?? [])
+    .filter((a): a is typeof a & { address: string; chainType: string; walletClientType?: string } =>
+      a.type === "wallet" && "address" in a && (("chainType" in a ? a.chainType : "ethereum") === "ethereum"))
+    .sort((a, b) => (a.firstVerifiedAt?.getTime() ?? Infinity) - (b.firstVerifiedAt?.getTime() ?? Infinity));
+  const mainAddress = linked[0]?.address.toLowerCase();
+  const wallet = mainAddress
+    ? wallets.find((w) => w.address.toLowerCase() === mainAddress)
+    : wallets.find((w) => w.walletClientType === "privy") ?? wallets[0];
+  const walletAddress = (mainAddress ?? wallet?.address) as `0x${string}` | undefined;
+  const embedded = linked[0] ? linked[0].walletClientType === "privy" : wallet?.walletClientType === "privy";
   const xHandle = user?.twitter?.username ?? undefined;
 
   useEffect(() => {
@@ -131,10 +139,9 @@ export default function PrivyRuntime({ onChange }: { onChange: (v: AuthContextVa
           showWalletLoginFirst: false,
         },
         embeddedWallets: {
-          // Everyone gets a Patched (embedded) wallet, including people who sign in with an external wallet
-          // like MetaMask: useBid always prefers the embedded wallet, so bidding is gas-sponsored and
-          // one-tap for them too. Their external wallet still works as a funding source (top up, export).
-          ethereum: { createOnLogin: "all-users" },
+          // X and email users get an embedded wallet; people who sign in with their own wallet keep using it.
+          // ("all-users" gave MetaMask users a second, empty wallet and moved their account to it.)
+          ethereum: { createOnLogin: "users-without-wallets" },
           // Bids are confirmed in our own UI; don't show Privy's extra confirmation modals.
           showWalletUIs: false,
         },

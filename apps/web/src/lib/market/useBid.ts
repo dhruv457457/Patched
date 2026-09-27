@@ -28,6 +28,7 @@ export function friendlyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (err instanceof Error && err.name === "PasskeyRequired")
     return `Moves of $${STEP_UP_USD.toLocaleString("en-US")} or more need a passkey. Set one up in your account menu, then try again.`;
+  if (/wallet not connected/i.test(msg)) return "Your wallet isn't connected in this browser. Open MetaMask (or your wallet), connect it to Patched, then try again.";
   if (/mfa/i.test(msg)) return "The passkey check didn't go through. Try again.";
   if (/rejected|denied|cancel/i.test(msg)) return "You cancelled the signature.";
   if (/FaucetCooldown/i.test(msg)) return "You already used the faucet today. Try again tomorrow.";
@@ -63,6 +64,7 @@ export function useBid() {
     setError(null);
     setHash(null);
     try {
+      if (!isEmbeddedWallet && !wallet) throw new Error("wallet not connected");
       // Big bids: passkey check through Privy MFA before anything is signed.
       await stepUp.ensure(amount);
       setStatus("signing");

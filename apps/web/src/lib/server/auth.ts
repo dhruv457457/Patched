@@ -19,6 +19,8 @@ interface PrivyLinkedAccount {
   chain_type?: string;
   username?: string;
   email?: string;
+  /** Unix seconds when this account was first linked. */
+  first_verified_at?: number | null;
 }
 
 /**
@@ -47,7 +49,10 @@ export async function getSessionUser(req: Request): Promise<SessionUser | null> 
   const user = (await res.json()) as { linked_accounts?: PrivyLinkedAccount[] };
   const accounts = user.linked_accounts ?? [];
   const evm = accounts.filter((a) => a.type === "wallet" && (a.chain_type ?? "ethereum") === "ethereum" && a.address);
-  const wallet = (evm.find((a) => a.wallet_client_type === "privy") ?? evm[0])?.address?.toLowerCase() ?? null;
+  // The account's wallet is the one linked first: a MetaMask user keeps their MetaMask wallet (where their money,
+  // listings and bids are) even if Privy later adds an embedded wallet; an X or email user keeps their embedded one.
+  const first = [...evm].sort((a, b) => (a.first_verified_at ?? Infinity) - (b.first_verified_at ?? Infinity))[0];
+  const wallet = first?.address?.toLowerCase() ?? null;
   const x = accounts.find((a) => a.type === "twitter_oauth");
   const emails = accounts
     .map((a) => (a.type === "email" ? a.address : a.type === "google_oauth" ? a.email : undefined))

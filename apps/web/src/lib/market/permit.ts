@@ -14,6 +14,7 @@ export function usePermitSigner() {
 
   return async function signPermit(spender: `0x${string}`, value: bigint) {
     if (!walletAddress) throw new Error("not signed in");
+    if (!isEmbeddedWallet && !wallet) throw new Error("wallet not connected");
     const [nonce, name, version] = await Promise.all([
       publicClient.readContract({ address: USDC, abi: permitAbi, functionName: "nonces", args: [walletAddress] }),
       publicClient.readContract({ address: USDC, abi: permitAbi, functionName: "name" }),

@@ -13,6 +13,8 @@ export function useTx() {
 
   return async function send(to: `0x${string}`, data: `0x${string}`) {
     if (!walletAddress) throw new Error("not signed in");
+    // Your wallet is MetaMask (or similar) but it isn't connected in this browser: don't fall back to another wallet.
+    if (!isEmbeddedWallet && !wallet) throw new Error("wallet not connected");
     let hash: `0x${string}`;
     if (isEmbeddedWallet || !wallet) {
       if (!GAS_SPONSORED && (await publicClient.getBalance({ address: walletAddress })) === 0n) throw new Error("no gas");

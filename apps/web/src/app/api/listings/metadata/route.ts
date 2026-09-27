@@ -14,6 +14,22 @@ const num = (v: unknown, min: number, max: number) => {
   return n;
 };
 
+/** Deal terms, with known values only, in a fixed key order (the hash depends on it). */
+function cleanDeal(d: NonNullable<ListingMetadata["deal"]>): NonNullable<ListingMetadata["deal"]> {
+  const idea = d.idea ? String(d.idea).trim().slice(0, 60) : "";
+  const deliverables = Array.isArray(d.deliverables)
+    ? d.deliverables.map((x) => String(x ?? "").trim().slice(0, 80)).filter(Boolean).slice(0, 8)
+    : [];
+  return {
+    ...(idea ? { idea } : {}),
+    ...(d.vehicle === "car" || d.vehicle === "van" || d.vehicle === "bus" ? { vehicle: d.vehicle } : {}),
+    ...(Number.isInteger(d.days) && d.days! >= 1 && d.days! <= 8 ? { days: d.days } : {}),
+    ...(d.place === "parked" || d.place === "loop" ? { place: d.place } : {}),
+    ...(d.payout === "upfront" || d.payout === "after" || d.payout === "daily" || d.payout === "custom" ? { payout: d.payout } : {}),
+    ...(deliverables.length ? { deliverables } : {}),
+  };
+}
+
 /**
  * Store the off-chain listing JSON before createListing. The contract stores keccak256 of this exact
  * JSON string, and the indexer joins the two by that hash. Keys are built in a fixed order so the
@@ -69,6 +85,7 @@ export async function POST(req: Request) {
               .slice(0, 6),
           }
         : {}),
+      ...(body.deal && typeof body.deal === "object" ? { deal: cleanDeal(body.deal) } : {}),
     };
     if (metadata.milestones.reduce((s, m) => s + m.bps, 0) !== 10_000) throw new Error("bps");
   } catch {

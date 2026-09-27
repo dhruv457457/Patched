@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Car, Loader2, Plus, RefreshCw, Shirt, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { Camera, Car, Lightbulb, Loader2, Plus, RefreshCw, Shirt, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { SurfaceFigure } from "@/components/surface/SurfaceFigure";
 import type { PatchData } from "@/components/surface/Patch";
 import { Card } from "@/components/ui/Card";
@@ -17,6 +17,8 @@ import type { SurfaceKind } from "@/lib/market/types";
 import { useCreateListing } from "@/lib/market/useCreateListing";
 import { defaultTiers } from "@/lib/market/tiers";
 import { PATCH_TIERS, type PatchTier } from "@patched/shared";
+import { DealTerms } from "@/components/studio/DealTerms";
+import { defaultDraft, eventDays, planMilestones, planProblem, type DealDraft, type Kind } from "@/lib/market/dealPlan";
 
 export interface StudioEvent {
   id: number;
@@ -58,10 +60,17 @@ interface DraftPatch {
   perks?: string;
 }
 
-const SURFACE_OPTIONS: { kind: SurfaceKind; label: string; note: string; Icon: typeof Sparkles }[] = [
-  { kind: "outfit", label: "Outfit", note: "Paid per event", Icon: Sparkles },
-  { kind: "car", label: "Car", note: "Paid per week", Icon: Car },
-  { kind: "hoodie", label: "Team hoodie", note: "Paid per hackathon", Icon: Shirt },
+const SURFACE_OPTIONS: { kind: Kind; label: string; note: string; Icon: typeof Sparkles }[] = [
+  { kind: "outfit", label: "Outfit", note: "What you wear at an event", Icon: Sparkles },
+  { kind: "car", label: "Vehicle", note: "Car, van or bus, 1 to 3 event days", Icon: Car },
+  { kind: "hoodie", label: "Team hoodie", note: "Your team at a hackathon", Icon: Shirt },
+  { kind: "idea", label: "Your own idea", note: "A laptop lid, a booth wall, a board", Icon: Lightbulb },
+];
+/** Starting spots for an own idea: one big centre spot and two corners. The AI suggests better ones from the photo. */
+const IDEA_LAYOUT = [
+  { name: "Centre", x: 33, y: 36, w: 34, h: 22 },
+  { name: "Top left", x: 8, y: 10, w: 24, h: 16 },
+  { name: "Top right", x: 68, y: 10, w: 24, h: 16 },
 ];
 const STYLE_CHOICES: { key: string; label: string }[] = [
   { key: "current", label: "Keep my current outfit" },
@@ -80,25 +89,16 @@ const draft = (side: Side, s: { name: string; x: number; y: number; w: number; h
   id: idSeq++, side, name: s.name, x: s.x, y: s.y, w: s.w, h: s.h, r: s.r ?? 0, floor: 10, buyNow: 50 + i * 10,
 });
 
-function milestonePlan(surface: SurfaceKind, biddingEndsAt: number, event?: StudioEvent) {
-  if (surface === "car") {
-    return [0, 1, 2, 3].map((i) => ({ name: `Week ${i + 1} proof`, bps: 2500, deadline: biddingEndsAt + (i + 1) * 7 * DAY + 2 * DAY }));
-  }
-  const printDue = event ? Math.max(event.startsAt, biddingEndsAt + DAY) : biddingEndsAt + 5 * DAY;
-  const eventDue = event ? Math.max(event.endsAt + 3 * DAY, printDue + DAY) : biddingEndsAt + 14 * DAY;
-  return [
-    { name: "Print proof", bps: 4000, deadline: printDue },
-    { name: surface === "hoodie" ? "Hackathon proof" : "Event proof", bps: 6000, deadline: eventDue },
-  ];
-}
-
 export function StudioEditor({ events, minBond, newCreatorCap }: { events: StudioEvent[]; minBond: string; newCreatorCap: string }) {
   const router = useRouter();
   const { authenticated, login, walletAddress } = usePatchedAuth();
   const authedFetch = useAuthedFetch();
   const { create, step, error } = useCreateListing();
 
-  const [surface, setSurface] = useState<SurfaceKind>("outfit");
+  const [kind, setKind] = useState<Kind>("outfit");
+  const surface: SurfaceKind = kind === "idea" ? "outfit" : kind;
+  const [ideaText, setIdeaText] = useState("");
+  const [deal, setDeal] = useState<DealDraft>(() => defaultDraft("outfit"));
   const [title, setTitle] = useState("");
   const [eventId, setEventId] = useState<number>(events[0]?.id ?? 0);
   const [days, setDays] = useState(3);
@@ -119,34 +119,37 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
   const [faq, setFaq] = useState<{ q: string; a: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const person = surface !== "car";
+  // People (outfit, hoodie) get the AI model shots; vehicles get every side; an own idea gets one clean photo.
+  const person = kind === "outfit" || kind === "hoodie";
+  const isIdea = kind === "idea";
   const bond = BigInt(minBond);
   const cap = Number(newCreatorCap) / 1e6;
   const event = events.find((e) => e.id === eventId);
   const buyNowTotal = patches.reduce((s, p) => s + p.buyNow, 0);
   const selected = patches.find((p) => p.id === selectedId) ?? null;
   const sidePatches = patches.filter((p) => p.side === side);
-  const plan = useMemo(() => milestonePlan(surface, Date.now() + days * DAY, person ? event : undefined), [surface, days, event, person]);
+  const plan = useMemo(() => planMilestones({ kind, draft: deal, biddingEndsAt: Date.now() + days * DAY, event }), [kind, deal, days, event]);
   const publishing = step === "saving" || step === "approving" || step === "creating";
   const styleText = styleKey === "custom" ? customStyle.trim() : styleKey.startsWith("ai:") ? aiStyles[Number(styleKey.slice(3))] : styleKey;
   const canvas = views.find((v) => v.id === side)?.image ?? null;
   const viewLabel = (id: Side) => views.find((v) => v.id === id)?.label ?? id;
   const putView = (v: ViewImage) =>
     setViews((cur) => {
-      const order = (person ? ["front", "back"] : CAR_VIEWS.map((c) => c.id as string));
+      const order = person ? ["front", "back"] : isIdea ? ["front"] : CAR_VIEWS.map((c) => c.id as string);
       return [...cur.filter((x) => x.id !== v.id), v].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     });
 
-  function pickSurface(kind: SurfaceKind) {
-    setSurface(kind);
+  function pickSurface(next: Kind) {
+    setKind(next);
+    setDeal(defaultDraft(next));
     setPhotoUrl(null);
     setViews([]);
     setCarDescription(null);
-    setSide(kind === "car" ? "left" : "front");
+    setSide(next === "car" ? "left" : "front");
     setAiStyles([]);
-    setPatches(DEFAULT_LAYOUTS[kind].slice(0, 3).map((s) => draft(kind === "car" ? "left" : "front", s)));
+    const layout = next === "idea" ? IDEA_LAYOUT : DEFAULT_LAYOUTS[next].slice(0, 3);
+    setPatches(layout.map((s) => draft(next === "car" ? "left" : "front", s)));
     setSelectedId(null);
-    if (kind === "car") setEventId(0);
   }
 
   async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -158,6 +161,7 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
 
   async function onPhoto(file: File) {
     if (!authenticated) return login();
+    if (isIdea && !ideaText.trim()) return toast('Say what it is first, like "Laptop lid on stage".');
     try {
       setBusy("Uploading your photo…");
       const form = new FormData();
@@ -174,6 +178,8 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
         postJson<{ styles: string[] }>("/api/ai/styles", { photoUrl: upJson.url })
           .then(({ styles }) => setAiStyles(styles))
           .catch(() => {});
+      } else if (isIdea) {
+        await generateIdeaCanvas(upJson.url);
       } else {
         setBusy(null);
         await generateCarViews(upJson.url);
@@ -189,11 +195,11 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
   async function autoLayout(url: string, which: Side) {
     const fallback = person
       ? MODEL_SHOT_LAYOUTS[which === "back" ? "back" : "front"]
-      : CAR_VIEW_LAYOUTS[which as keyof typeof CAR_VIEW_LAYOUTS] ?? DEFAULT_LAYOUTS.car;
-    const count = person ? (which === "back" ? 2 : 4) : which === "left" || which === "right" ? 4 : 2;
+      : isIdea ? IDEA_LAYOUT : CAR_VIEW_LAYOUTS[which as keyof typeof CAR_VIEW_LAYOUTS] ?? DEFAULT_LAYOUTS.car;
+    const count = person ? (which === "back" ? 2 : 4) : isIdea ? 3 : which === "left" || which === "right" ? 4 : 2;
     let spots: { name: string; x: number; y: number; w: number; h: number; r?: number }[] = fallback;
     try {
-      const label = person ? which : CAR_VIEWS.find((c) => c.id === which)?.label;
+      const label = person || isIdea ? which : CAR_VIEWS.find((c) => c.id === which)?.label;
       const { patches: s } = await postJson<{ patches: typeof spots }>("/api/ai/layout", { canvasUrl: url, surface, count, view: label });
       if (s?.length) spots = s;
     } catch {
@@ -226,6 +232,23 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
         void autoLayout(res.url, v.id);
       }
       if (!only) toast("Every side of your car is ready. Adjust the patches, then set prices.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Own idea: the photo, whitewashed by the AI so logos can go on it, as one view. */
+  async function generateIdeaCanvas(photo: string) {
+    try {
+      setBusy("Cleaning up your photo…");
+      const { canvasUrl } = await postJson<{ canvasUrl: string }>("/api/ai/canvas", { imageUrl: photo, surface: "outfit", idea: ideaText.trim() });
+      setViews([{ id: "front", label: "Front", image: canvasUrl }]);
+      setSide("front");
+      setBusy("Placing spots…");
+      await autoLayout(canvasUrl, "front");
+      toast("Your canvas is ready. Adjust the spots, then set the deal.");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -269,6 +292,9 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
     if (!title.trim()) return toast("Give your listing a title.");
     if (!patches.length) return toast("Add at least one patch.");
     if (patches.some((p) => !(p.floor > 0) || p.buyNow < p.floor)) return toast("Each patch needs a floor above $0 and a buy-now at or above its floor.");
+    const planIssue = planProblem(plan);
+    if (planIssue) return toast(planIssue);
+    if (isIdea && !ideaText.trim()) return toast('Say what your idea is, like "Laptop lid on stage".');
     // Patches grouped by view, in view order (the contract's patch ids follow this order).
     const viewOrder = views.length ? views.map((v) => v.id) : [...new Set(patches.map((p) => p.side))];
     const ordered = viewOrder.flatMap((id) => patches.filter((p) => p.side === id));
@@ -292,9 +318,15 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
         ...(story.trim() ? { story: story.trim() } : {}),
         ...(faq.some((f) => f.q.trim() && f.a.trim()) ? { faq: faq.filter((f) => f.q.trim() && f.a.trim()) } : {}),
         milestones: plan.map((m) => ({ name: m.name, bps: m.bps })),
+        deal: {
+          ...(isIdea ? { idea: ideaText.trim() } : {}),
+          ...(kind === "car" ? { vehicle: deal.vehicle, days: deal.days, place: deal.place } : { days: eventDays(event) }),
+          payout: deal.payout,
+          deliverables: deal.deliverables,
+        },
       },
       surfaceIndex: surface === "outfit" ? 0 : surface === "car" ? 1 : 2,
-      eventId: person ? eventId : 0,
+      eventId,
       biddingEndsAt: Math.floor((Date.now() + days * DAY) / 1000),
       bond,
       floors: ordered.map((p) => BigInt(Math.round(p.floor * 1e6))),
@@ -307,6 +339,11 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
     }
   }
 
+  const fromPrice = patches.length ? Math.min(...patches.map((p) => p.floor)) : 0;
+  const firstView = views[0]?.id ?? (surface === "car" ? "left" : "front");
+  const previewPatches: PatchData[] = patches.filter((p) => p.side === firstView).map((p, i) => ({
+    id: p.id, name: p.name, x: p.x, y: p.y, w: p.w, h: p.h, r: p.r, c: PASTELS[i % PASTELS.length],
+  }));
   const figurePatches: PatchData[] = sidePatches.map((p, i) => ({
     id: p.id, name: p.name, x: p.x, y: p.y, w: p.w, h: p.h, r: p.r, floor: p.floor, c: PASTELS[i % PASTELS.length],
   }));
@@ -331,22 +368,24 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
             ))}
           </div>
           <label className="grid gap-1.5"><span className="field-label">Title</span>
-            <input className={INPUT} value={title} maxLength={80} placeholder={person ? "My Token2049 fit" : "4 weeks around Bengaluru"}
+            <input className={INPUT} value={title} maxLength={80} placeholder={kind === "car" ? "Ravi's van at Token2049" : isIdea ? "My laptop lid on stage" : "My Token2049 fit"}
               onChange={(e) => setTitle(e.target.value)} /></label>
-          {person && (
-            <label className="grid gap-1.5"><span className="field-label">Event</span>
-              <select className={INPUT} value={eventId} onChange={(e) => setEventId(Number(e.target.value))}>
-                {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                <option value={0}>No specific event</option>
-              </select></label>
-          )}
+          <label className="grid gap-1.5"><span className="field-label">Event</span>
+            <select className={INPUT} value={eventId} onChange={(e) => setEventId(Number(e.target.value))}>
+              {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              <option value={0}>No specific event</option>
+            </select></label>
           <label className="grid gap-1.5"><span className="field-label">Bidding runs for</span>
             <select className={INPUT} value={days} onChange={(e) => setDays(Number(e.target.value))}>
               {[1, 3, 5, 7].map((d) => <option key={d} value={d}>{d} day{d > 1 ? "s" : ""}</option>)}
             </select></label>
 
           <div className="grid gap-2 border-t-2 border-dashed border-[var(--soft)] pt-3">
-            <span className="field-label">{person ? "1. A photo of you" : "Photo of your car"}</span>
+            {isIdea && (
+              <label className="grid gap-1.5"><span className="field-label">What is it?</span>
+                <input className={INPUT} value={ideaText} maxLength={60} placeholder="Laptop lid on stage" onChange={(e) => setIdeaText(e.target.value)} /></label>
+            )}
+            <span className="field-label">{person ? "1. A photo of you" : isIdea ? "A photo of it" : "Photo of your vehicle"}</span>
             <button onClick={() => fileRef.current?.click()} disabled={!!busy}
               className="w-full flex gap-3 items-center border-2 border-dashed border-[var(--line)] rounded-xl p-3 bg-[var(--paper)] hover:border-[var(--accent)] text-left">
               <span className="w-11 h-11 rounded-lg bg-[var(--soft)] grid place-items-center overflow-hidden flex-none">
@@ -354,7 +393,7 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
                 {photoUrl ? <img src={photoUrl} alt="Your photo" className="w-full h-full object-cover" /> : <Camera size={20} />}
               </span>
               <span className="text-sm"><b>{photoUrl ? "Change photo" : "Upload photo"}</b><br />
-                <span className="text-[var(--muted)] text-xs">{person ? "A clear selfie is enough" : "One photo from the front corner. AI draws every side"}</span></span>
+                <span className="text-[var(--muted)] text-xs">{person ? "A clear selfie is enough" : isIdea ? "AI whitewashes it so logos fit" : "One photo from the front corner. AI draws every side"}</span></span>
             </button>
             <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden
               onChange={(e) => { const f = e.target.files?.[0]; if (f) onPhoto(f); e.target.value = ""; }} />
@@ -435,7 +474,7 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
             <Button size="small" onClick={addPatch}><Plus size={14} /> Add patch</Button>
             {canvas && <Button size="small" onClick={() => autoLayout(canvas, side)} disabled={!!busy}><Wand2 size={14} /> AI suggest spots</Button>}
           </div>
-          <div className={surface === "car" ? "max-w-[620px] mx-auto" : "max-w-[360px] mx-auto"}>
+          <div className={surface === "car" ? "max-w-[620px] mx-auto" : isIdea ? "max-w-[520px] mx-auto" : "max-w-[360px] mx-auto"}>
             <SurfaceFigure
               surface={surface}
               imageUrl={canvas}
@@ -450,7 +489,7 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
             />
           </div>
           <p className="text-xs text-[var(--muted)] text-center mt-2">
-            {canvas ? "Drag a patch to move it. Drag its corner to resize." : person ? "Upload a photo to see yourself here, or use the drawing." : "Upload one photo of your car. AI draws the left, right, front, back and roof."}
+            {canvas ? "Drag a patch to move it. Drag its corner to resize." : person ? "Upload a photo to see yourself here, or use the drawing." : isIdea ? "Say what it is and upload a photo. AI turns it into a clean canvas." : "Upload one photo of your vehicle. AI draws the left, right, front, back and roof."}
           </p>
           {busy && (
             <div className="absolute inset-0 rounded-[16px] bg-[var(--card)]/95 grid place-items-center text-center p-6">
@@ -499,23 +538,61 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
             {buyNowTotal > cap && <p className="text-xs text-[var(--accent-text)]">First listings are capped at {formatUsdc(cap)} in buy-now prices until you complete one delivery.</p>}
           </div>
 
-          <div className="grid gap-1.5">
-            <span className="field-label">How you get paid</span>
-            {plan.map((m) => (
-              <div key={m.name} className="flex justify-between text-sm">
-                <span>{m.bps / 100}% after {m.name.toLowerCase()}</span>
-                <span className="text-[var(--muted)] font-mono text-xs">by {new Date(m.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-              </div>
-            ))}
-          </div>
-
-          {error && <p className="text-sm text-[var(--red)]" role="alert">{error}</p>}
-          <Button variant="primary" onClick={publish} disabled={publishing || !!busy}>
-            {step === "saving" ? "Saving details…" : step === "approving" ? "Approving bond…" : step === "creating" ? "Publishing on-chain…" : authenticated ? "Publish listing" : "Sign in to publish"}
-          </Button>
-          <p className="text-xs text-[var(--muted)]">Listings go live after a quick review by the Patched team.</p>
         </Card>
       </div>
+
+      {/* ── the deal, and what brands will see ── */}
+      <section className="mt-8 grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_360px] items-start">
+        <Card className="p-5 sm:p-7 grid gap-5 min-w-0">
+          <div>
+            <span className="eyebrow">Step 3</span>
+            <h2 className="text-3xl font-extrabold tracking-tight mt-1">Set your deal</h2>
+            <p className="text-[var(--muted)] mt-1">What brands get, for how long, and how you get paid. Brands see all of this before they bid.</p>
+          </div>
+          <DealTerms kind={kind} draft={deal} onChange={setDeal} plan={plan} eventName={event?.name ?? null} />
+        </Card>
+
+        <aside className="grid gap-3 lg:sticky lg:top-4">
+          <span className="eyebrow">What brands see</span>
+          <Card className="overflow-hidden !p-0">
+            <div className="bg-[var(--stage)] h-[220px] p-4 grid place-items-center">
+              <div className={surface === "car" ? "w-full" : "h-full"}>
+                <SurfaceFigure surface={surface} imageUrl={views[0]?.image ?? null} patches={previewPatches} mode="static" showPrices={false}
+                  className={surface === "car" ? "w-full" : "h-full !w-auto"} />
+              </div>
+            </div>
+            <div className="p-4 grid gap-3">
+              <div>
+                <b className="text-lg leading-tight block">{title.trim() || "Your listing"}</b>
+                <span className="text-sm text-[var(--muted)]">
+                  {kind === "car" ? `${deal.days} event day${deal.days > 1 ? "s" : ""}, ${deal.place === "loop" ? "looping the venue" : "parked at the venue"}` : isIdea ? (ideaText.trim() || "Your own idea") : SURFACE_OPTIONS.find((o) => o.kind === kind)?.label}
+                  {event ? ` · ${event.name}` : ""}
+                </span>
+              </div>
+              <div className="flex h-2.5 rounded-full overflow-hidden gap-[2px]" aria-hidden="true">
+                {plan.map((m, i) => <span key={i} style={{ width: `${m.bps / 100}%`, background: ["var(--p3)", "var(--p4)", "var(--p2)", "var(--p1)"][i % 4] }} />)}
+              </div>
+              <p className="text-sm">
+                {patches.length} spot{patches.length === 1 ? "" : "s"} from <b className="font-mono">{formatUsdc(fromPrice)}</b>
+                {" · "}{plan.length === 1 ? "paid in full after the event" : `paid in ${plan.length} parts`}
+              </p>
+              {deal.deliverables.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {deal.deliverables.map((d) => <span key={d} className="text-xs font-semibold rounded-full bg-[var(--soft)] px-2.5 py-1">{d}</span>)}
+                </div>
+              )}
+              <p className="text-xs text-[var(--muted)] border-t-[1.5px] border-[var(--soft)] pt-3">
+                Your stake: {formatUsdc(Number(bond) / 1e6)}, returned when you deliver.
+              </p>
+            </div>
+          </Card>
+          {error && <p className="text-sm text-[var(--red)]" role="alert">{error}</p>}
+          <Button variant="primary" className="h-12 justify-center text-base" onClick={publish} disabled={publishing || !!busy}>
+            {step === "saving" ? "Saving details…" : step === "approving" ? "Approving your stake…" : step === "creating" ? "Publishing on-chain…" : authenticated ? "Publish listing" : "Sign in to publish"}
+          </Button>
+          <p className="text-xs text-[var(--muted)] text-center">Listings go live after a quick review by the Patched team.</p>
+        </aside>
+      </section>
     </main>
   );
 }

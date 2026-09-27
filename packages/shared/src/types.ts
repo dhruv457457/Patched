@@ -83,6 +83,24 @@ export interface ListingMetadata {
   headline?: string;
   story?: string;
   faq?: { q: string; a: string }[];
+  /** V2 deal terms the creator set in the Studio. Brands see them before they bid. */
+  deal?: ListingDeal;
+}
+
+/** Deal terms: what the surface is, for how long, how the payout is split, and what every spot includes. */
+export interface ListingDeal {
+  /** An own-idea listing (on-chain it uses the outfit surface): what the thing is, e.g. "Laptop lid on stage". */
+  idea?: string;
+  /** Vehicles (the car surface): which kind. */
+  vehicle?: "car" | "van" | "bus";
+  /** Event days the deal covers (vehicles: 1 to 3). */
+  days?: number;
+  /** Vehicles: parked at the venue, or looping around it. */
+  place?: "parked" | "loop";
+  /** The payout preset the creator picked. The split itself is in `milestones`. */
+  payout?: "upfront" | "after" | "daily" | "custom";
+  /** What every spot includes. Each line is part of the proof. */
+  deliverables?: string[];
 }
 
 export type PatchTier = "mega" | "prime" | "mini";

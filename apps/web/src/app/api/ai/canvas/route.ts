@@ -9,11 +9,11 @@ export const maxDuration = 60;
 
 const SURFACES: Surface[] = ["outfit", "car", "hoodie"];
 
-/** Photo → clean white canvas. Body: { imageUrl, surface }. Returns { canvasUrl }. */
+/** Photo → clean white canvas. Body: { imageUrl, surface, idea? } (idea: what an own-idea surface is). Returns { canvasUrl }. */
 export async function POST(req: Request) {
   const user = await getSessionUser(req);
   if (!user?.wallet) return unauthorized();
-  const { imageUrl, surface } = (await req.json()) as { imageUrl?: string; surface?: Surface };
+  const { imageUrl, surface, idea } = (await req.json()) as { imageUrl?: string; surface?: Surface; idea?: string };
   if (!imageUrl?.startsWith(process.env.NEXT_PUBLIC_SUPABASE_URL!) || !surface || !SURFACES.includes(surface)) {
     return Response.json({ error: "Upload a photo first." }, { status: 400 });
   }
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { image, model } = await makeCanvas(imageUrl, surface);
+    const { image, model } = await makeCanvas(imageUrl, surface, idea?.trim() || undefined);
     const m = image.match(/^data:(image\/[a-z]+);base64,(.+)$/);
     if (!m) throw new Error("unexpected image format");
     const bytes = Buffer.from(m[2], "base64");

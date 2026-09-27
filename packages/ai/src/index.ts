@@ -52,7 +52,16 @@ const CANVAS_PROMPTS: Record<Surface, string> = {
  * @param image a data: URL or public https URL of the source photo
  * @returns a data: URL (PNG/JPEG) of the edited image
  */
-export async function makeCanvas(image: string, surface: Surface): Promise<{ image: string; model: string }> {
+/** An own-idea surface (a laptop lid, a booth wall, a skateboard): whitewash the thing so logos can go on it. */
+function ideaPrompt(what: string) {
+  return (
+    `Edit this photo. It shows ${what.replace(/[^\w\s,.'-]/g, "").slice(0, 60)}. Keep the same object, angle, framing, background and ` +
+    "lighting exactly. Make the object's visible surfaces plain clean white with no logos, text, stickers or prints, so " +
+    "logos can be placed on it. Return only the edited photo."
+  );
+}
+
+export async function makeCanvas(image: string, surface: Surface, idea?: string): Promise<{ image: string; model: string }> {
   const models = [env("AI_IMAGE_MODEL", "google/gemini-3.1-flash-lite-image"), env("AI_IMAGE_FALLBACK_MODEL", "google/gemini-2.5-flash-image")];
   let lastError: unknown;
   for (const model of models) {
@@ -64,7 +73,7 @@ export async function makeCanvas(image: string, surface: Surface): Promise<{ ima
           {
             role: "user",
             content: [
-              { type: "text", text: CANVAS_PROMPTS[surface] },
+              { type: "text", text: idea ? ideaPrompt(idea) : CANVAS_PROMPTS[surface] },
               { type: "image_url", image_url: { url: image } },
             ],
           },

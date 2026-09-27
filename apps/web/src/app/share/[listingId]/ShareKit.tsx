@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import QRCode from "qrcode";
 import { Copy, Download, ExternalLink, Loader2, Printer, Share2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";

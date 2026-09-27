@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CalendarDays, ExternalLink, Flame, Globe, MapPin, Megaphone, Plus, Swords, Trophy, Users, Zap } from "lucide-react";
 import { ListingCardView } from "@/components/market/ListingCardView";
 import { Avatar } from "@/components/ui/Avatar";
-import { formatCountdown, formatTimeAgo, formatUsdc } from "@/lib/format";
+import { formatTimeAgo, formatUsdc } from "@/lib/format";
 import { fromWire, type Wire } from "@/lib/market/types";
 import type { ListingCard } from "@/lib/market/server";
 import { cn } from "@/lib/utils";

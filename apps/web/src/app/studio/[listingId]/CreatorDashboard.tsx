@@ -2,7 +2,6 @@
 
 import { ListingTools } from "@/components/market/ListingTools";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { encodeFunctionData } from "viem";
 import { Camera, X } from "lucide-react";

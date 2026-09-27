@@ -270,7 +270,7 @@ export interface MilestoneView {
   reviewEndsAt: number | null;
   disputedMask: number;
   resolvedMask: number;
-  proof: { files: string[]; note: string | null } | null;
+  proof: { files: string[]; note: string | null; xUrl: string | null } | null;
 }
 
 export interface DeliveryView {
@@ -288,7 +288,7 @@ export async function fetchDelivery(id: number, metadata: ListingMetadata | null
   const [listing, ms, proofs, payouts, receipts, patches, disputes] = await Promise.all([
     db.from("listings").select("next_milestone, total_escrow").eq("chain_id", CHAIN_ID).eq("listing_id", id).maybeSingle(),
     db.from("milestones").select("*").eq("chain_id", CHAIN_ID).eq("listing_id", id).order("idx"),
-    db.from("proof_files").select("milestone, files, note").eq("chain_id", CHAIN_ID).eq("listing_id", id),
+    db.from("proof_files").select("milestone, files, note, x_url").eq("chain_id", CHAIN_ID).eq("listing_id", id),
     db.from("payouts").select("kind, milestone, amount, fee, block_time, tx_hash").eq("chain_id", CHAIN_ID).eq("listing_id", id).order("block_time"),
     db.from("receipts").select("patch_id, owner").eq("chain_id", CHAIN_ID).eq("listing_id", id),
     db.from("patches").select("patch_id, top_bid").eq("chain_id", CHAIN_ID).eq("listing_id", id),
@@ -308,7 +308,7 @@ export async function fetchDelivery(id: number, metadata: ListingMetadata | null
         reviewEndsAt: m.review_ends_at ? new Date(m.review_ends_at).getTime() : null,
         disputedMask: m.disputed_mask,
         resolvedMask: m.resolved_mask,
-        proof: p ? { files: p.files as string[], note: p.note } : null,
+        proof: p ? { files: p.files as string[], note: p.note, xUrl: (p.x_url as string | null) ?? null } : null,
       };
     }),
     payouts: (payouts.data ?? []).map((p) => ({
@@ -330,7 +330,7 @@ export interface AdminReviewItem {
   milestone: number;
   milestoneName: string;
   reviewEndsAt: number | null;
-  proof: { files: string[]; note: string | null } | null;
+  proof: { files: string[]; note: string | null; xUrl: string | null } | null;
   disputes: { patchId: number; label: string; holder: string; reason: DisputeReason }[];
 }
 
@@ -352,7 +352,7 @@ export async function fetchAdminReview(): Promise<AdminReviewItem[]> {
   const ids = [...new Set([...keys.values()].map((k) => k.listingId))];
   const [{ data: cards }, { data: proofs }, { data: patches }] = await Promise.all([
     db.from("listing_cards").select("listing_id, metadata").eq("chain_id", CHAIN_ID).in("listing_id", ids),
-    db.from("proof_files").select("listing_id, milestone, files, note").eq("chain_id", CHAIN_ID).in("listing_id", ids),
+    db.from("proof_files").select("listing_id, milestone, files, note, x_url").eq("chain_id", CHAIN_ID).in("listing_id", ids),
     db.from("patches").select("listing_id, patch_id, label").eq("chain_id", CHAIN_ID).in("listing_id", ids),
   ]);
   return [...keys.values()].map((k) => {
@@ -364,7 +364,7 @@ export async function fetchAdminReview(): Promise<AdminReviewItem[]> {
       milestone: k.milestone,
       milestoneName: meta?.milestones[k.milestone]?.name ?? `Milestone ${k.milestone + 1}`,
       reviewEndsAt: k.reviewEndsAt ? new Date(k.reviewEndsAt).getTime() : null,
-      proof: proof ? { files: proof.files as string[], note: proof.note } : null,
+      proof: proof ? { files: proof.files as string[], note: proof.note, xUrl: (proof.x_url as string | null) ?? null } : null,
       disputes: (open ?? [])
         .filter((d) => d.listing_id === k.listingId && d.milestone === k.milestone)
         .map((d) => ({

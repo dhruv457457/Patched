@@ -430,3 +430,9 @@ html[data-signed-in] .landing-only {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
+
+/* A soft pulse around the step that's happening now (delivery tracker). */
+@keyframes ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  100% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--accent) 0%, transparent); }
+}

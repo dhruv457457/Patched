@@ -35,6 +35,7 @@ export function CreatorDashboard({ listing: lw, delivery: dw }: { listing: Wire<
   const [busy, setBusy] = useState<string | null>(null);
   const [files, setFiles] = useState<string[]>([]);
   const [note, setNote] = useState("");
+  const [xUrl, setXUrl] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => setMounted(true), []);
 
@@ -85,7 +86,7 @@ export function CreatorDashboard({ listing: lw, delivery: dw }: { listing: Wire<
       const res = await authedFetch("/api/proofs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ listingId: listing.id, milestone: m.idx, files, note }),
+        body: JSON.stringify({ listingId: listing.id, milestone: m.idx, files, note, ...(xUrl.trim() ? { xUrl: xUrl.trim() } : {}) }),
       });
       const json = (await res.json()) as { proofHash?: `0x${string}`; proofURI?: string; error?: string };
       if (!res.ok || !json.proofHash) throw new Error(json.error ?? "Couldn't save your proof.");
@@ -96,6 +97,7 @@ export function CreatorDashboard({ listing: lw, delivery: dw }: { listing: Wire<
       if (ok) {
         setFiles([]);
         setNote("");
+        setXUrl("");
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : "Couldn't submit proof.");
@@ -131,6 +133,14 @@ export function CreatorDashboard({ listing: lw, delivery: dw }: { listing: Wire<
           </div>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden
             onChange={(e) => { if (e.target.files?.length) upload(e.target.files); e.target.value = ""; }} />
+          <label className="grid gap-1">
+            <span className="text-sm font-semibold">
+              Your X post{/x post/i.test(m.name) ? "" : " (optional)"}
+            </span>
+            <input className="border-2 border-[var(--line)] rounded-xl px-3 py-2 bg-[var(--paper)] text-sm" value={xUrl} onChange={(e) => setXUrl(e.target.value)}
+              placeholder="https://x.com/you/status/…" inputMode="url" />
+            <span className="text-xs text-[var(--muted)]">Post a photo of the patch at the event, tag the brand and add #patched. Brands see the post with your proof.</span>
+          </label>
           <textarea className="border-2 border-[var(--line)] rounded-xl px-3 py-2 bg-[var(--paper)] text-sm" rows={2} maxLength={500}
             placeholder="Optional note for the brands" value={note} onChange={(e) => setNote(e.target.value)} />
           <Button variant="primary" className="justify-self-start" onClick={() => submitProof(m)} disabled={!!busy || !files.length}>

@@ -11,7 +11,7 @@ import type { ListingCard } from "@/lib/market/server";
 const PASTELS = ["p2", "p3", "p1", "p4", "p5"] as const;
 const SURFACE_META = {
   outfit: { label: "Outfit", Icon: Sparkles },
-  car: { label: "Car", Icon: Car },
+  car: { label: "Vehicle", Icon: Car },
   hoodie: { label: "Team hoodie", Icon: Shirt },
 } as const;
 

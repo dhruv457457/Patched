@@ -220,7 +220,9 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
   const busy = txStatus === "signing" || txStatus === "confirming";
   const bubble = bubbleId === null ? null : patches.find((p) => p.id === bubbleId) ?? null;
   const meta = listing.metadata;
-  const surfaceWord = listing.surface === "car" ? "car" : listing.surface === "hoodie" ? "hoodie" : "outfit";
+  const deal = meta?.deal;
+  const surfaceWord = deal?.idea ? deal.idea.toLowerCase()
+    : listing.surface === "car" ? (deal?.vehicle ?? "car") : listing.surface === "hoodie" ? "hoodie" : "outfit";
   const pg = editing ? draft : saved;
   const setPg = (change: Partial<ListingPage>) => setDraft((d) => ({ ...d, ...change }));
   const setTitle = (k: keyof NonNullable<ListingPage["titles"]>, v: string) => setDraft((d) => ({ ...d, titles: { ...d.titles, [k]: v } }));
@@ -315,10 +317,12 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
           {[
             { id: "stage", label: "Photo" },
             { id: "spots", label: "Spots" },
+            { id: "deal", label: "Deal" },
             { id: "protection", label: "Protection" },
             { id: "activity", label: "Activity" },
             { id: "faq", label: "FAQ" },
           ].filter((t) => t.id !== "protection" || (status !== 5 && status !== 6))
+            .filter((t) => t.id !== "deal" || !!(deal?.deliverables?.length || deal?.days))
             .filter((t) => (t.id !== "activity" || shown("activity")) && (t.id !== "faq" || shown("faq")))
             .map((t) => (
               <button key={t.id} onClick={() => jumpTo(t.id)} className="flex-none rounded-full px-3 py-1.5 text-xs font-semibold border-[1.5px] border-[var(--line)] bg-[var(--card)]">
@@ -535,6 +539,38 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
         {biddingOpen && !isCreator && <SweepPanel listingId={listing.id} patches={patches} minNext={minNext} me={me} />}
       </section>
 
+      {/* ── The deal: what every spot includes, for how long ── */}
+      {deal && (deal.deliverables?.length || deal.days) && (
+        <section id="deal" className="wrap mt-14 grid gap-4 scroll-mt-32">
+          <div>
+            <span className="eyebrow">The deal</span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold mt-1">What every brand gets</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_280px] items-start">
+            {!!deal.deliverables?.length && (
+              <ul className="card-surface p-5 grid gap-3 list-none m-0">
+                {deal.deliverables.map((d) => (
+                  <li key={d} className="flex gap-3 items-start">
+                    <span className="w-6 h-6 rounded-lg bg-[var(--green-soft)] text-[var(--green)] grid place-items-center flex-none mt-px"><Check size={14} strokeWidth={3} /></span>
+                    <span>{d}</span>
+                  </li>
+                ))}
+                <li className="text-xs text-[var(--muted)] pt-1">Each one is part of the proof. You get 72 hours to check it before any money moves.</li>
+              </ul>
+            )}
+            <div className="card-surface p-5 grid gap-2 content-start">
+              {deal.idea && <p><b>What it is:</b> {deal.idea}</p>}
+              {listing.surface === "car" && deal.vehicle && <p><b>Vehicle:</b> {deal.vehicle[0].toUpperCase() + deal.vehicle.slice(1)}</p>}
+              {!!deal.days && <p><b>{deal.days} event day{deal.days > 1 ? "s" : ""}</b>{listing.eventName ? ` at ${listing.eventName}` : ""}</p>}
+              {deal.place && <p>{deal.place === "loop" ? "Loops around the venue all day." : "Parked right by the entrance."}</p>}
+              <p className="text-sm text-[var(--muted)]">
+                Paid in {listing.milestoneBps.length} step{listing.milestoneBps.length > 1 ? "s" : ""}: {listing.milestoneBps.map((b) => `${b / 100}%`).join(" · ")}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── What protects the brand: creator stake, record, payout plan ── */}
       {status !== 5 && status !== 6 && (
         <section id="protection" className="wrap mt-14 scroll-mt-32">
@@ -631,7 +667,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
             { t: "Bid in USDC", d: "One signature. If someone outbids you, your USDC comes straight back." },
             { t: "Money waits in escrow", d: "Nothing goes to the creator until they post proof. You can dispute within 72 hours." },
             {
-              t: listing.surface === "car" ? "Get driven around" : "Get worn at the event",
+              t: deal?.idea ? "Get seen at the event" : listing.surface === "car" ? (deal?.place === "parked" ? "Get parked at the venue" : "Get driven around the venue") : "Get worn at the event",
               d: "Your logo gets printed, shown and photographed. You keep a receipt NFT for your spot.",
             },
           ].map((step, i) => (

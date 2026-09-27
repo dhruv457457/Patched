@@ -27,7 +27,7 @@ interface PrivyLinkedAccount {
  * Verify the Privy access token from `Authorization: Bearer <token>` and look up the user's wallet.
  * Returns null if the request is not signed in. Server routes use this instead of trusting the client.
  */
-export async function getSessionUser(req: Request): Promise<SessionUser | null> {
+export async function getSessionUser(req: Request, opts: { fresh?: boolean } = {}): Promise<SessionUser | null> {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return null;
   let did: string;
@@ -38,6 +38,19 @@ export async function getSessionUser(req: Request): Promise<SessionUser | null> 
     return null;
   }
 
+  // Privy's user lookup is a network round trip on every signed-in request; reuse it for a minute per user.
+  // fresh: skip the cache (e.g. right after linking an email, to verify a brand).
+  const hit = opts.fresh ? undefined : userCache.get(did);
+  if (hit && hit.at > Date.now() - 60_000) return hit.user;
+  const user = await lookupUser(did);
+  if (user.wallet !== null || user.xHandle !== null) userCache.set(did, { at: Date.now(), user });
+  if (userCache.size > 500) userCache.delete(userCache.keys().next().value!);
+  return user;
+}
+
+const userCache = new Map<string, { at: number; user: SessionUser }>();
+
+async function lookupUser(did: string): Promise<SessionUser> {
   const res = await fetch(`https://auth.privy.io/api/v1/users/${encodeURIComponent(did)}`, {
     headers: {
       "privy-app-id": appId,

@@ -105,7 +105,6 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
   const [saved, setSaved] = useState<ListingPage>(() => listing.page);
   const [draft, setDraft] = useState<ListingPage>(() => listing.page);
   const [editing, setEditing] = useState(false);
-  const [savingPage, setSavingPage] = useState(false);
   const [burst, setBurst] = useState<{ x: number; y: number; n: number } | null>(null);
   const [viewSide, setViewSide] = useState<string>(() => listing.views[0]?.id ?? "front");
   const [amountText, setAmountText] = useState("");
@@ -254,25 +253,41 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
     document.getElementById("stage")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  async function savePage() {
-    setSavingPage(true);
-    try {
-      const res = await authedFetch(`/api/listings/${listing.id}/page`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(draft),
-      });
-      const body = (await res.json()) as { page?: ListingPage; error?: string };
-      if (!res.ok || !body.page) throw new Error(body.error ?? "Couldn't save your page.");
-      setSaved(body.page);
-      setDraft(body.page);
-      setEditing(false);
-      toast("Page saved. Everyone sees the new version now.");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Couldn't save your page.");
-    } finally {
-      setSavingPage(false);
-    }
+  /**
+   * Saving is queued, not awaited: the page shows the new version and the editor closes right away, and saves run
+   * one after another in the background (so two quick saves can't land out of order). If one fails, the page goes
+   * back to what's stored and the toast offers to retry with the edits kept.
+   */
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  function persist(page: ListingPage, previous: ListingPage) {
+    const id = toast.loading("Saving your page…");
+    saveQueue.current = saveQueue.current.then(async () => {
+      try {
+        const res = await authedFetch(`/api/listings/${listing.id}/page`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(page),
+        });
+        const body = (await res.json()) as { page?: ListingPage; error?: string };
+        if (!res.ok || !body.page) throw new Error(body.error ?? "Couldn't save your page.");
+        setSaved(body.page);
+        toast.success("Page saved. Everyone sees the new version now.", { id });
+      } catch (err) {
+        setSaved(previous);
+        toast.error(err instanceof Error ? err.message : "Couldn't save your page.", {
+          id,
+          action: { label: "Try again", onClick: () => { setSaved(page); persist(page, previous); } },
+        });
+      }
+    });
+  }
+
+  function savePage() {
+    const page = draft;
+    const previous = saved;
+    setSaved(page);
+    setEditing(false);
+    persist(page, previous);
   }
 
   return (
@@ -797,8 +812,8 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
           </div>
           <div className="flex gap-2 ml-auto">
             <button className="btn-base btn-small btn-ghost" onClick={() => setDraft({})} title="Back to the default text and colour"><ResetIcon size={13} /> Defaults</button>
-            <button className="btn-base btn-small" onClick={() => { setDraft(saved); setEditing(false); }} disabled={savingPage}>Cancel</button>
-            <button className="btn-base btn-small btn-primary" onClick={savePage} disabled={savingPage}><Save size={13} /> {savingPage ? "Saving…" : "Save"}</button>
+            <button className="btn-base btn-small" onClick={() => { setDraft(saved); setEditing(false); }}>Cancel</button>
+            <button className="btn-base btn-small btn-primary" onClick={savePage}><Save size={13} /> Save</button>
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@ export const runtime = "nodejs";
  * same domain as their brand website. Emails come from Privy's API on the server, never from the client.
  */
 export async function POST(req: Request) {
-  const user = await getSessionUser(req);
+  const user = await getSessionUser(req, { fresh: true });
   if (!user) return unauthorized();
   const db = supabaseAdmin();
   const { data: profile } = await db.from("profiles").select("brand_website").eq("privy_did", user.did).maybeSingle();

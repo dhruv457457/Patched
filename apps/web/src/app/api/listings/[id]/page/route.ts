@@ -2,6 +2,15 @@ import { CHAIN_ID } from "@/lib/config";
 import { getSessionUser, unauthorized } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sanitizePage } from "@/lib/market/page";
+import { patchedMarketAbi } from "@patched/shared";
+import { MARKET, serverClient } from "@/lib/config";
+
+const ZERO = "0x0000000000000000000000000000000000000000";
+
+async function onChain(id: number) {
+  const L = await serverClient().readContract({ address: MARKET, abi: patchedMarketAbi, functionName: "getListing", args: [BigInt(id)] }).catch(() => null);
+  return L && L.creator !== ZERO ? { creator: L.creator.toLowerCase(), patch_count: Number(L.patchCount) } : null;
+}
 
 export const runtime = "nodejs";
 
@@ -13,7 +22,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!Number.isInteger(id) || id < 1) return Response.json({ error: "Unknown listing." }, { status: 404 });
 
   const db = supabaseAdmin();
-  const { data: listing } = await db.from("listings").select("creator, patch_count").eq("chain_id", CHAIN_ID).eq("listing_id", id).maybeSingle();
+  const { data: row } = await db.from("listings").select("creator, patch_count").eq("chain_id", CHAIN_ID).eq("listing_id", id).maybeSingle();
+  // A brand-new listing may not be indexed yet: the contract is the source of truth, so ask it.
+  const listing = row ?? (await onChain(id));
   if (!listing) return Response.json({ error: "Unknown listing." }, { status: 404 });
   if (listing.creator.toLowerCase() !== user.wallet) return Response.json({ error: "Only the creator can edit this page." }, { status: 403 });
 

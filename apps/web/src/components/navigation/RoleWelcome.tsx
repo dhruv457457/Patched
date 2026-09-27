@@ -6,7 +6,7 @@ import { Gavel, Shirt } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { toast } from "@/components/ui/Toast";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
-import { isListingPage } from "./BottomNav";
+import { isListingPage } from "@/lib/routes";
 
 type Role = "creator" | "brand" | "browse";
 

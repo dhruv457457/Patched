@@ -30,10 +30,9 @@ export const metadata: Metadata = {
 };
 
 import { ProfileProvider } from "@/lib/profile";
-import { Navbar } from "@/components/navigation/Navbar";
 import { PrivyAuthProvider } from "@/components/providers/PrivyAuthProvider";
-import { BottomNav } from "@/components/navigation/BottomNav";
-import { RoleWelcome } from "@/components/navigation/RoleWelcome";
+import { AppShell } from "@/components/navigation/AppShell";
+import { SIGNED_IN_SCRIPT } from "@/lib/signedInScript";
 
 export default function RootLayout({
   children,
@@ -58,6 +57,7 @@ export default function RootLayout({
                   document.documentElement.setAttribute('data-theme', 'light');
                 }
               } catch (_) {}
+              ${SIGNED_IN_SCRIPT}
             `,
           }}
         />
@@ -67,10 +67,7 @@ export default function RootLayout({
           <PrivyAuthProvider>
             <ProfileProvider>
               <SurfaceDefs />
-              <Navbar />
-              <div className="flex-1">{children}</div>
-              <BottomNav />
-              <RoleWelcome />
+              <AppShell>{children}</AppShell>
               <Toaster />
             </ProfileProvider>
           </PrivyAuthProvider>

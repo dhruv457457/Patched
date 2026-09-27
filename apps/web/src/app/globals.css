@@ -420,3 +420,8 @@ h1, h2, h3, h4, h5, h6 {
 @media (prefers-reduced-motion: reduce) {
   .feed li, .dot.live { animation: none; }
 }
+
+/* A returning, signed-in visitor goes straight to the app: hide the landing page until the shell swaps it out. */
+html[data-signed-in] .landing-only {
+  display: none;
+}

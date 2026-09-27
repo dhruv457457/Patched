@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, BadgeCheck, Check, Clock, ExternalLink, Flame, Fuel, Link2, RotateCcw, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Check, Clock, ExternalLink, Flame, Fuel, Link2, RotateCcw, ShieldCheck } from "lucide-react";
+import { LogoMark } from "@/components/brand/Logo";
 import { SurfaceFigure } from "@/components/surface/SurfaceFigure";
 import type { PatchData, PatchHandle } from "@/components/surface/Patch";
 import { Card } from "@/components/ui/Card";
@@ -278,7 +279,10 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
       style={{ "--accent": accent.accent, "--accent-soft": accent.soft, "--on-accent": accent.on, "--accent-text": accent.text } as React.CSSProperties}
     >
       <div className="wrap pt-5 flex items-center gap-3 flex-wrap">
-        <Link href="/explore" className="btn-base btn-ghost btn-small"><ArrowLeft size={14} /> Explore</Link>
+        {/* The creator's own page: only a small mark says where it's hosted. */}
+        <Link href="/" className="group inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--line)] bg-[var(--card)] pl-1.5 pr-3 py-1 text-xs font-semibold no-underline text-[var(--ink)] hover:bg-[var(--soft)]">
+          <LogoMark size={20} /> Made with Patched <span className="text-[var(--muted)] hidden sm:inline">· Open the app</span>
+        </Link>
         <Chip variant="monad" className="ml-auto">USDC · Monad</Chip>
         <button
           className="btn-base btn-small"
@@ -306,7 +310,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
       )}
 
       {/* ── Phones: jump between the parts of a long page ── */}
-      <nav aria-label="On this page" className="lg:hidden sticky top-[58px] z-30 mt-3 bg-[var(--paper)]/95 backdrop-blur-md border-b-2 border-[var(--soft)]">
+      <nav aria-label="On this page" className="lg:hidden sticky top-0 z-30 mt-3 bg-[var(--paper)]/95 backdrop-blur-md border-b-2 border-[var(--soft)]">
         <div className="wrap flex gap-1.5 overflow-x-auto py-2">
           {[
             { id: "stage", label: "Photo" },

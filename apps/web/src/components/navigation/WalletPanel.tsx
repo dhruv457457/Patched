@@ -1,0 +1,83 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { Check, Copy, ExternalLink, Gavel, LayoutDashboard, LogOut, Moon, Settings, ShieldHalf, Sun } from "lucide-react";
+import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
+import { useBalances } from "@/lib/useBalances";
+import { useIsAdmin } from "@/lib/useIsAdmin";
+import { useTheme } from "@/lib/theme";
+import { CHAIN, EXPLORER, GAS_SPONSORED } from "@/lib/config";
+import { formatShortAddress } from "@/lib/format";
+import { NetworkOptions } from "./NetworkSwitch";
+
+const ROW = "flex items-center gap-3 h-10 px-2.5 rounded-xl text-[15px] font-semibold no-underline text-[var(--ink)] hover:bg-[var(--soft)] w-full text-left";
+
+/**
+ * The wallet, as a small panel: balance in dollars, how to add money, and the account places (bids, dashboard,
+ * settings, theme, network, sign out). Opened from your name in the sidebar or the avatar on phones.
+ */
+export function WalletPanel({ onNavigate }: { onNavigate?: () => void }) {
+  const { walletAddress, logout } = usePatchedAuth();
+  const { usdc, mon } = useBalances(walletAddress);
+  const isAdmin = useIsAdmin(walletAddress);
+  const { theme, toggleTheme } = useTheme();
+  const [copied, setCopied] = useState(false);
+  const go = () => onNavigate?.();
+
+  async function copy() {
+    if (!walletAddress) return;
+    try {
+      await navigator.clipboard.writeText(walletAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard blocked: the full address is in Settings */
+    }
+  }
+
+  return (
+    <div className="grid gap-3">
+      <div className="grid gap-1">
+        <span className="text-xs font-semibold text-[var(--muted)]">Balance</span>
+        <b className="font-mono text-3xl tabular-nums leading-none">{usdc === null ? "…" : `$${usdc}`}</b>
+        <span className="text-xs text-[var(--muted)]">
+          USDC on {CHAIN.name}
+          {!GAS_SPONSORED && mon !== null ? ` · ${mon} MON for gas` : ""}
+        </span>
+      </div>
+
+      <div className="grid gap-1.5">
+        <button onClick={copy} className="btn-base btn-small btn-primary w-full justify-center">
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? "Address copied" : "Add money"}
+        </button>
+        <p className="text-xs text-[var(--muted)]">
+          {copied ? `Send USDC on ${CHAIN.name} to ${formatShortAddress(walletAddress)} from any wallet or exchange.` : `Copies your address. Send USDC on ${CHAIN.name} to it.`}
+        </p>
+      </div>
+
+      <div className="grid gap-0.5 border-t-[1.5px] border-[var(--soft)] pt-2">
+        <Link href="/bids" onClick={go} className={ROW}><Gavel size={17} /> My bids</Link>
+        <Link href="/dashboard" onClick={go} className={ROW}><LayoutDashboard size={17} /> Creator dashboard</Link>
+        <Link href="/settings" onClick={go} className={ROW}><Settings size={17} /> Settings</Link>
+        {isAdmin && <Link href="/admin" onClick={go} className={ROW}><ShieldHalf size={17} /> Admin</Link>}
+        <button onClick={toggleTheme} className={ROW}>
+          {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />} {theme === "dark" ? "Light mode" : "Dark mode"}
+        </button>
+        <a href={`${EXPLORER}/address/${walletAddress}`} target="_blank" rel="noopener noreferrer" className={ROW}>
+          <ExternalLink size={17} /> Wallet on explorer
+        </a>
+      </div>
+
+      <div className="grid gap-1.5 border-t-[1.5px] border-[var(--soft)] pt-2">
+        <span className="eyebrow px-1">Network</span>
+        <NetworkOptions onPick={go} />
+      </div>
+
+      <button onClick={() => { go(); void logout(); }} className={`${ROW} text-[var(--muted)]`}>
+        <LogOut size={17} /> Sign out
+      </button>
+    </div>
+  );
+}

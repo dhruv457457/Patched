@@ -48,8 +48,10 @@ export function useInjectedWallets() {
     const found = new Map<string, InjectedWallet>();
     const onAnnounce = (e: Event) => {
       const { info, provider } = (e as AnnounceEvent).detail;
-      const key = info.rdns || info.uuid;
-      if (found.has(key)) return;
+      // Key by uuid, not rdns: some wallets (OKX with "default wallet" on) announce under MetaMask's rdns, and
+      // keying by rdns would hide the real MetaMask behind them. The same provider object is only listed once.
+      const key = info.uuid || info.rdns;
+      if (found.has(key) || [...found.values()].some((w) => w.provider === provider)) return;
       found.set(key, { id: key, name: info.name, icon: info.icon, rdns: info.rdns, provider });
       setWallets([...found.values()]);
     };

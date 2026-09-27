@@ -1,6 +1,7 @@
 # Patched V2: product spec
 
-Status: agreed direction, 2026-09-27. V1 is [SPEC.md](SPEC.md); this file replaces its app structure and extends its deals. The
+Status: agreed direction, 2026-09-27. Clickable prototype of every screen:
+https://claude.ai/artifact/7MoYXSet9Dn62tTaosmYDF (private to the project lead; ask for access). V1 is [SPEC.md](SPEC.md); this file replaces its app structure and extends its deals. The
 contracts, the brand look (colours, fonts, hard shadows) and the three-surface idea stay.
 
 ## 1. What Patched is

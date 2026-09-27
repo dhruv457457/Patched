@@ -37,6 +37,15 @@ The loop every screen serves:
 
 ## 3. App structure
 
+**Two layers.** What a creator shares is **their own page**, not the app. It's a full-screen site in their colours,
+with their headline and story, every view of the thing they're patching, the spots and live bids, and only a small
+"Made with Patched · Open in Patched" mark. Posting it on X should feel like sharing a site they built. (Today's editable
+sponsor page is this page; V2 keeps and polishes it.) The **app** (sidebar, feed, profile) is where people browse, bid
+and manage; tapping a listing opens that creator's page.
+
+**Nothing that works today is removed:** AI canvas and views, spot drawing, the editable sponsor page, the share kit
+(posters, X post, QR), live bidding, auto-bid, sweep, notifications, verified brands, passkey and wallet export all stay.
+
 ### Landing (signed out)
 **The current landing page stays.** Its "Get patched" button opens sign-in. Signed-in visitors skip it and land on Home.
 
@@ -83,14 +92,17 @@ One column of moments, newest first, from people and events you follow plus tren
 Every item has at most two actions. Tapping anywhere else opens the item.
 
 ### Events and the event page
-- An admin creates an event with a **cover image, description, dates, venue, city and links** (website, X, tickets).
+- An admin creates an event with a **cover image, description, dates, venue, city and links** (website, X). Events are
+  run by their organisers; Patched doesn't sell tickets, it lists who's going and their spots.
 - The event page has the cover, about and links, then **Going** (creators, vehicles and teams with listings), then open
   spots, then the event feed. During the event it becomes a **live wall** of posts and spotted photos.
 - **Leaderboards per event:** most sponsored fit, brand on the most people, biggest bidding war.
 
-### Listing (a post with a live auction)
-Photo with the spots up top, the creator, the event, the deal terms (deliverables, payout schedule, reach bonus), then
-the spots. Tapping a spot opens the one-tap bid bubble from V1. Live bids, watchers and bidding wars stay.
+### Listing (the creator's own page)
+Bidding first: "Live auction · ends in 1d 8h", bid so far, spots taken, bidding wars. View tabs (Left, Right, Front,
+Back, Roof for vehicles; Front and Back for outfits and hoodies) from the AI views. The selected spot's bid panel sits
+beside the photo (price, leader, recent bids, +$5, +$10, buy now, Bid, auto-bid). Then every spot, what the brand
+gets, and live bids. Escrow and stakes are small print, not headlines.
 
 ### Create
 A guided flow: surface → photo (AI canvas) → spots → **deal terms** (event days, deliverables, payout schedule) →
@@ -108,6 +120,10 @@ Pause or Top up.
 ## 5. Deals
 
 ### Surfaces
+Creators pick one of three surfaces, **or their own idea** (anything people will see and photograph: a laptop lid on
+stage, a booth wall, a skateboard). An own idea uses the outfit surface label on-chain and describes itself in the
+listing metadata.
+
 | Surface | What | Duration | Proof |
 |---|---|---|---|
 | Outfit | A person at an event | The event | Print photo, venue photos, X post |

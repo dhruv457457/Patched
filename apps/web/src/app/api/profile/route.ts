@@ -1,11 +1,9 @@
 import { getSessionUser, unauthorized } from "@/lib/server/auth";
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
+import { HANDLE_RE, RESERVED_HANDLES as RESERVED, handleProblem } from "@/lib/handles";
 
 export const runtime = "nodejs";
-
-/** Top-level routes: a handle with one of these names would be unreachable. */
-const RESERVED = new Set(["admin", "api", "bids", "dashboard", "e", "events", "explore", "listing", "share", "studio", "settings", "about", "notifications"]);
 
 const FIELDS = "id, wallet, handle, display_name, x_handle, x_verified, avatar_url, banner_color, bio, brand_name, brand_logo_url, brand_website, brand_verified_domain, is_admin";
 
@@ -73,8 +71,8 @@ export async function PATCH(req: Request) {
   }
   if ("handle" in body) {
     const h = String(body.handle ?? "").trim().toLowerCase();
-    if (!/^[a-z0-9][a-z0-9._-]{1,30}$/.test(h)) return bad("Handles are 2–31 characters: letters, numbers, dots, dashes or underscores.");
-    if (/^0x[0-9a-f]{40}$/.test(h) || RESERVED.has(h)) return bad("That handle isn't allowed.");
+    const problem = handleProblem(h);
+    if (problem) return bad(problem);
     patch.handle = h;
   }
 
@@ -94,7 +92,7 @@ function bad(error: string) {
 }
 
 async function freeHandle(preferred: string | null): Promise<string | null> {
-  if (!preferred || !/^[a-z0-9][a-z0-9._-]{1,30}$/.test(preferred) || RESERVED.has(preferred)) return null;
+  if (!preferred || !HANDLE_RE.test(preferred) || RESERVED.has(preferred)) return null;
   const { data } = await supabaseAdmin().from("profiles").select("id").eq("handle", preferred).maybeSingle();
   return data ? null : preferred;
 }

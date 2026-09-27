@@ -425,3 +425,8 @@ h1, h2, h3, h4, h5, h6 {
 html[data-signed-in] .landing-only {
   display: none;
 }
+
+@keyframes story-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}

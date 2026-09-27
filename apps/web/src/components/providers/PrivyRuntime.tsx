@@ -5,6 +5,8 @@ import {
   PrivyProvider,
   useExportWallet,
   useLinkAccount,
+  useLoginWithEmail,
+  useLoginWithOAuth,
   useMfa,
   useMfaEnrollment,
   usePrivy,
@@ -30,6 +32,8 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
   const { promptMfa } = useMfa();
   const { showMfaEnrollmentModal } = useMfaEnrollment();
   const { update: updateEmail } = useUpdateEmail();
+  const { initOAuth } = useLoginWithOAuth();
+  const { sendCode, loginWithCode } = useLoginWithEmail();
 
   // linkEmail() resolves when Privy reports the email linked.
   const linking = useRef<{ resolve: () => void; reject: (e: unknown) => void } | null>(null);
@@ -61,6 +65,9 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
       isEmbeddedWallet: Boolean(embedded),
       hasGasSponsorship: Boolean(embedded),
       login,
+      loginWithX: () => initOAuth({ provider: "twitter" }),
+      sendEmailCode: (email: string) => sendCode({ email }),
+      loginWithEmailCode: (code: string) => loginWithCode({ code }),
       logout,
       getAccessToken,
       sendTransaction,
@@ -95,7 +102,14 @@ export default function PrivyRuntime({ onChange }: { onChange: (v: AuthContextVa
       appId={appId}
       config={{
         loginMethods: ["twitter", "email", "wallet"],
-        appearance: { theme: "light", accentColor: "#FF5A1F", showWalletLoginFirst: false },
+        appearance: {
+          theme: "light",
+          accentColor: "#FF5A1F",
+          logo: "/icon.svg",
+          landingHeader: "Welcome to Patched",
+          loginMessage: "No wallet needed. We make one for you.",
+          showWalletLoginFirst: false,
+        },
         embeddedWallets: {
           // Everyone gets a Patched (embedded) wallet, including people who sign in with an external wallet
           // like MetaMask: useBid always prefers the embedded wallet, so bidding is gas-sponsored and

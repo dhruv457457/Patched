@@ -19,6 +19,10 @@ export interface AuthContextValue {
   isEmbeddedWallet: boolean;
   hasGasSponsorship: boolean;
   login: () => void;
+  /** Our own sign-in UI (the welcome page): X redirects out and back; email is a 6-digit code. */
+  loginWithX: () => Promise<void>;
+  sendEmailCode: (email: string) => Promise<void>;
+  loginWithEmailCode: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   /** Embedded-wallet actions (Privy hooks, passed through as-is). */
@@ -53,6 +57,9 @@ const NOT_READY: AuthContextValue = {
   login: () => {
     pendingLogin = true;
   },
+  loginWithX: notReady,
+  sendEmailCode: notReady,
+  loginWithEmailCode: notReady,
   logout: async () => {},
   getAccessToken: async () => null,
   sendTransaction: notReady,

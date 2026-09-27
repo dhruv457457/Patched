@@ -6,14 +6,13 @@ import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth/useAuth";
 import { Logo } from "@/components/brand/Logo";
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { NetworkSwitch } from "./NetworkSwitch";
 
 /** The landing page's top bar, for signed-out visitors. Signed-in people get the app sidebar instead. */
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
-  const { ready, login } = useAuth();
+  const { ready } = useAuth();
   const pathname = usePathname();
 
   const links = [
@@ -72,8 +71,8 @@ export function Navbar() {
             <span className="w-24 h-9 rounded-xl bg-[var(--soft)] motion-safe:animate-pulse" aria-hidden="true" />
           ) : (
             <>
-              <Button size="small" variant="ghost" onClick={login}>Sign in</Button>
-              <Link href="/studio" className="btn-base btn-small btn-primary hidden sm:inline-flex">Get patched</Link>
+              <Link href="/welcome" className="btn-base btn-small btn-ghost">Sign in</Link>
+              <Link href="/welcome?next=/studio" className="btn-base btn-small btn-primary hidden sm:inline-flex">Get patched</Link>
             </>
           )}
         </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, Check, Clock, Crown, ExternalLink, Link2, Lock, Plus, Repeat, ShieldCheck, Trophy } from "lucide-react";
+import { ArrowRight, BadgeCheck, Pause, Play, Check, Clock, Crown, ExternalLink, Link2, Lock, Plus, Repeat, ShieldCheck, Trophy } from "lucide-react";
 import NumberFlow from "@number-flow/react";
 import { LogoMark } from "@/components/brand/Logo";
 import { Avatar as WalletAvatar } from "@/components/ui/Avatar";
@@ -33,7 +33,9 @@ import { EditableText } from "@/components/market/EditableText";
 import { PAGE_ACCENTS, PAGE_SECTIONS, type ListingPage, type PageAccent, type PageSection } from "@/lib/market/page";
 import { useAuthedFetch } from "@/lib/authedFetch";
 import { Eye, EyeOff, Pencil, RotateCcw as ResetIcon, Save } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
+import { Reveal } from "@/components/ui/Reveal";
+import { PoweredBy } from "@/components/brand/PoweredBy";
 import type { DeliveryView } from "@/lib/market/server";
 import { useTx } from "@/lib/market/useTx";
 import { friendlyError } from "@/lib/market/useBid";
@@ -46,6 +48,13 @@ const STATUS_LABEL: Record<number, string> = {
 };
 const usd = (v: bigint) => formatUsdc(Number(v) / 1e6);
 const USD_FORMAT = { style: "currency", currency: "USD", maximumFractionDigits: 2, minimumFractionDigits: 0 } as const;
+/** Sections below the auction fade up the first time they scroll into view. */
+const REVEAL = {
+  initial: { opacity: 0, y: 28 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.6, ease: [0.2, 0.8, 0.2, 1] },
+} as const;
 const MILESTONE_COLORS = ["var(--p3)", "var(--p4)", "var(--p2)", "var(--p1)"];
 
 /** Same rule as the contract's _minNext, capped at buy-now. */
@@ -100,6 +109,9 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
   // The spot whose bid panel is open on the board.
   const [openId, setOpenId] = useState<number | null>(null);
   const reduce = useReducedMotion();
+  // The photo turns through its views (front and back, or every side of a car) on its own until someone takes over.
+  const [autoplay, setAutoplay] = useState(true);
+  const [stageHover, setStageHover] = useState(false);
   // Creator page editing: `saved` is what visitors see, `draft` is what the creator is changing.
   const authedFetch = useAuthedFetch();
   const [saved, setSaved] = useState<ListingPage>(() => listing.page);
@@ -124,6 +136,14 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
       clearTimeout(introTimer);
     };
   }, []);
+
+  const rotating = listing.views.length > 1 && autoplay && !reduce && !stageHover && openId === null && !editing;
+  useEffect(() => {
+    if (!rotating) return;
+    const ids = listing.views.map((v) => v.id);
+    const t = setInterval(() => setViewSide((cur) => ids[(ids.indexOf(cur) + 1) % ids.length]), 2000);
+    return () => clearInterval(t);
+  }, [rotating, listing.views]);
 
   const selected = patches.find((p) => p.id === selectedId) ?? patches[0];
   const countdown = formatCountdown(endsAt);
@@ -274,6 +294,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <main
       className="pb-28"
       style={{ "--accent": accent.accent, "--accent-soft": accent.soft, "--on-accent": accent.on, "--accent-text": accent.text } as React.CSSProperties}
@@ -312,13 +333,28 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
       {/* ── The auction room: the photo on one side, every spot's live price and leader on the other ── */}
       <section className="wrap mt-6 grid gap-8 lg:gap-12 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-start">
         <div id="stage" className="lg:sticky lg:top-6 grid gap-3 scroll-mt-6">
-          <div className="rounded-[28px] bg-[var(--stage)] p-4 sm:p-6 grid gap-3">
+          <div className="rounded-[28px] bg-[var(--stage)] p-4 sm:p-6 grid gap-3" onMouseEnter={() => setStageHover(true)} onMouseLeave={() => setStageHover(false)}>
             {listing.views.length > 1 && (
-              <div className="flex justify-center overflow-x-auto">
-                <Seg options={listing.views.map((v) => ({ value: v.id, label: v.label }))} value={viewSide} onChange={setViewSide} size="small" />
+              <div className="flex justify-center items-center gap-2">
+                <div className="grid gap-1 min-w-0">
+                  <div className="overflow-x-auto">
+                    <Seg options={listing.views.map((v) => ({ value: v.id, label: v.label }))} value={viewSide} onChange={(v) => { setViewSide(v); setAutoplay(false); }} size="small" />
+                  </div>
+                  {/* How long until the next view */}
+                  <span className="block h-[2px] rounded-full bg-[var(--line)]/10 overflow-hidden" aria-hidden="true">
+                    {rotating && <span key={viewSide} className="block h-full bg-[var(--ink)] origin-left [animation:story-fill_2s_linear_forwards]" />}
+                  </span>
+                </div>
+                {!reduce && (
+                  <button type="button" onClick={() => setAutoplay((a) => !a)} aria-label={autoplay ? "Stop turning the photo" : "Turn the photo"}
+                    className="w-8 h-8 rounded-full grid place-items-center text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--card)] flex-none">
+                    {autoplay ? <Pause size={14} /> : <Play size={14} />}
+                  </button>
+                )}
               </div>
             )}
-            <div className={cn("relative", listing.surface === "car" ? "w-full" : listing.surface === "hoodie" ? "max-w-[400px] mx-auto w-full" : "max-w-[340px] mx-auto w-full")}>
+            <motion.div key={viewSide} initial={intro ? false : { opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+              className={cn("relative", listing.surface === "car" ? "w-full" : listing.surface === "hoodie" ? "max-w-[400px] mx-auto w-full" : "max-w-[340px] mx-auto w-full")}>
               <SurfaceFigure
                 surface={listing.surface}
                 imageUrl={listing.views.find((v) => v.id === viewSide)?.image ?? listing.canvasImage}
@@ -330,7 +366,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
                 animateDrop={intro}
               />
               <Burst key={burst?.n} x={burst?.x ?? 50} y={burst?.y ?? 50} show={!!burst} />
-            </div>
+            </motion.div>
           </div>
           <div className="flex gap-4 justify-center flex-wrap text-[13px] text-[var(--muted)]">
             <span className="inline-flex items-center gap-1.5"><i className="sw-legend filled" />Has a bid</span>
@@ -427,7 +463,8 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
                     const heat = mounted && biddingOpen && !p.bought ? spotHeat(bids, p.id) : null;
                     const history = bids.filter((b) => b.patchId === p.id);
                     return (
-                      <div key={p.id} id={`spot-${p.id}`} className={cn("border-b-[1.5px] border-[var(--soft)] last:border-b-0 scroll-mt-24 transition-colors", open && "bg-[var(--paper)]")}>
+                      <motion.div key={p.id} id={`spot-${p.id}`} className={cn("border-b-[1.5px] border-[var(--soft)] last:border-b-0 scroll-mt-24 transition-colors", open && "bg-[var(--paper)]")}
+                        initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 + (p.id % 12) * 0.05, duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}>
                         <button
                           type="button"
                           aria-expanded={open}
@@ -562,7 +599,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
                             </motion.div>
                           )}
                         </AnimatePresence>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -593,7 +630,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
       </section>
 
       {delivery && (
-        <section className="wrap mt-20 grid gap-3">
+        <motion.section {...REVEAL} className="wrap mt-20 grid gap-3">
           <div className="flex justify-between items-end gap-3 flex-wrap">
             <h2 className="font-extrabold text-3xl">Delivery</h2>
             {isCreator && <Link href={`/studio/${listing.id}`} className="btn-base btn-small">Manage your listing</Link>}
@@ -630,11 +667,11 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
               );
             }}
           />
-        </section>
+        </motion.section>
       )}
 
       {/* ── The deal and what protects the brand ── */}
-      <section id="deal" className="wrap mt-20 grid gap-12 lg:grid-cols-2 scroll-mt-20">
+      <motion.section {...REVEAL} id="deal" className="wrap mt-20 grid gap-12 lg:grid-cols-2 scroll-mt-20">
         <div className="grid gap-4 content-start">
           <div>
             <span className="eyebrow">The deal</span>
@@ -702,11 +739,11 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
             )}
           </div>
         )}
-      </section>
+      </motion.section>
 
       {/* ── Wall of logos ── */}
       {shown("sponsors") && (
-        <section className={cn("wrap mt-20 grid gap-4", hidden("sponsors") && "opacity-40")}>
+        <motion.section {...REVEAL} className={cn("wrap mt-20 grid gap-4", hidden("sponsors") && "opacity-40")}>
           <div>
             <span className="eyebrow">Sponsors</span>
             <EditableText as="h2" editing={editing} value={pg.titles?.sponsors} fallback={`Already on the ${surfaceWord}`} maxLength={60} onChange={(v) => setTitle("sponsors", v)} className="text-3xl sm:text-4xl font-extrabold mt-1" />
@@ -729,12 +766,12 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
           ) : (
             <p className="text-[var(--muted)]">No logos yet. The first brand to bid gets the pick of the spots.</p>
           )}
-        </section>
+        </motion.section>
       )}
 
       {/* ── How it works ── */}
       {shown("how") && (
-        <section className={cn("wrap mt-20 grid gap-6", hidden("how") && "opacity-40")}>
+        <motion.section {...REVEAL} className={cn("wrap mt-20 grid gap-6", hidden("how") && "opacity-40")}>
           <div>
             <span className="eyebrow">How it works</span>
             <EditableText as="h2" editing={editing} value={pg.titles?.how} fallback="Four steps, all on-chain" maxLength={60} onChange={(v) => setTitle("how", v)} className="text-3xl sm:text-4xl font-extrabold mt-1" />
@@ -749,19 +786,20 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
                 d: "Your logo gets printed, shown and photographed. You keep a receipt NFT for your spot.",
               },
             ].map((step, i) => (
-              <li key={step.t} className="grid gap-2 content-start border-t-[1.5px] border-[var(--ink)] pt-4">
+              <motion.li key={step.t} className="grid gap-2 content-start border-t-[1.5px] border-[var(--ink)] pt-4"
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.5, delay: 0.15 + i * 0.1 }}>
                 <span className="font-mono text-sm text-[var(--accent-text)] font-bold">{String(i + 1).padStart(2, "0")}</span>
                 <h3 className="text-lg font-bold">{step.t}</h3>
                 <p className="text-sm text-[var(--muted)]">{step.d}</p>
-              </li>
+              </motion.li>
             ))}
           </ol>
-        </section>
+        </motion.section>
       )}
 
       {/* ── Creator story ── */}
       {shown("story") && (
-        <section className={cn("wrap mt-20", hidden("story") && "opacity-40")}>
+        <motion.section {...REVEAL} className={cn("wrap mt-20", hidden("story") && "opacity-40")}>
           <div className="grid gap-4 max-w-3xl">
             <span className="eyebrow">About {creatorLabel}</span>
             <EditableText as="h2" editing={editing} value={pg.titles?.story} fallback="Why I'm doing this" maxLength={60} onChange={(v) => setTitle("story", v)} className="text-3xl sm:text-4xl font-extrabold" />
@@ -784,12 +822,12 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
               </Link>
             )}
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* ── FAQ ── */}
       {shown("faq") && (
-        <section id="faq" className={cn("wrap mt-20 scroll-mt-20", hidden("faq") && "opacity-40")}>
+        <motion.section {...REVEAL} id="faq" className={cn("wrap mt-20 scroll-mt-20", hidden("faq") && "opacity-40")}>
           <div className="grid gap-3 max-w-3xl">
             <span className="eyebrow">Questions</span>
             <EditableText as="h2" editing={editing} value={pg.titles?.faq} fallback="Before you bid" maxLength={60} onChange={(v) => setTitle("faq", v)} className="text-3xl sm:text-4xl font-extrabold" />
@@ -825,7 +863,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
               ))}
             </div>
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* ── Edit toolbar ── */}
@@ -902,7 +940,14 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
           )}
         </div>
       )}
+      <section className="wrap mt-24 pt-10 border-t-[1.5px] border-[var(--soft)]">
+        <Reveal className="grid gap-6 justify-items-center">
+          <span className="eyebrow">Built with</span>
+          <PoweredBy />
+        </Reveal>
+      </section>
     </main>
+    </MotionConfig>
   );
 }
 

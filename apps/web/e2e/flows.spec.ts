@@ -44,9 +44,11 @@ test.describe("signed-out flows", () => {
     await page.getByLabel("Email").fill("someone@example.com");
     await expect(send).toBeEnabled();
 
-    // This browser has no wallet extension: the page says so instead of opening a window.
+    // "I have a wallet" opens a picker of this browser's wallets. The test browser has none, so it says so and
+    // offers Privy's list for phone wallets instead of opening a window on its own.
     await page.getByRole("button", { name: "I have a wallet" }).click();
-    await expect(page.getByText("No wallet in this browser")).toBeVisible();
+    await expect(page.getByText("No wallet extension in this browser")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Phone or other wallet" })).toBeVisible();
     expect(errors).toEqual([]);
   });
 

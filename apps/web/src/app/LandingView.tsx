@@ -13,6 +13,9 @@ import {
   useTransform,
 } from "motion/react";
 import NumberFlow from "@number-flow/react";
+import { EASE, Reveal } from "@/components/ui/Reveal";
+import { MonadLogo, PrivyLogo } from "@/components/brand/PartnerLogos";
+import { PoweredBy } from "@/components/brand/PoweredBy";
 import {
   ArrowRight,
   BadgeCheck,
@@ -66,25 +69,10 @@ export interface LandingData {
   surfaceLinks: Partial<Record<SurfaceKind, string>>;
 }
 
-const EASE = [0.2, 0.8, 0.2, 1] as const;
 
 /** Empty example spots for a surface (no brands or prices: this is an illustration, not data). */
 const exampleSpots = (surface: SurfaceKind): PatchData[] =>
   DEFAULT_LAYOUTS[surface].slice(0, 4).map((s, i) => ({ id: i, name: s.name, x: s.x, y: s.y, w: s.w, h: s.h, r: s.r }));
-
-function Reveal({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
-  return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: 28 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.6, delay, ease: EASE }}
-    >
-      {children}
-    </motion.div>
-  );
-}
 
 function SectionHead({ eyebrow, title, sub }: { eyebrow: string; title: React.ReactNode; sub?: string }) {
   return (
@@ -552,7 +540,7 @@ function PoweredByPrivy() {
         <Reveal delay={0.1} className="flex-none">
           <span className="hidden sm:inline-flex items-center gap-2 rounded-full border-2 border-[var(--line)] bg-[var(--card)] px-4 py-2 text-sm font-bold shadow-[3px_3px_0_var(--shadow)]">
             <ShieldCheck className="w-4 h-4 text-[var(--accent-text)]" />
-            Secured by Privy
+            Secured by <PrivyLogo height={16} />
           </span>
         </Reveal>
       </div>
@@ -669,9 +657,8 @@ function Footer() {
         <Link href="/explore" className="hover:text-[var(--ink)] transition-colors">Explore</Link>
         <Link href="/studio" className="hover:text-[var(--ink)] transition-colors">Studio</Link>
         <Link href="/bids" className="hover:text-[var(--ink)] transition-colors">My bids</Link>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rotate-45 rounded-[1.5px] bg-[var(--monad)]" />
-          Built on Monad
+        <span className="flex items-center gap-2">
+          Built on <MonadLogo height={15} />
         </span>
       </nav>
     </footer>
@@ -688,6 +675,12 @@ export function LandingView({ featured, stats, ticker, surfaceLinks }: LandingDa
         <Surfaces surfaceLinks={surfaceLinks} />
         <Escrow />
         <PoweredByPrivy />
+        <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-20">
+          <Reveal className="grid gap-6 justify-items-center">
+            <span className="eyebrow">Built with</span>
+            <PoweredBy height={30} />
+          </Reveal>
+        </section>
         <TwoSides />
         <FinalCta />
         <Footer />

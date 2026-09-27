@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ChevronRight, Fingerprint, Loader2, Lock, Mail, ShieldCheck, Smartphone, Wallet, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { StoryPanel } from "@/components/brand/StoryPanel";
+import { PrivyLogo } from "@/components/brand/PartnerLogos";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useProfile } from "@/lib/profile";
 import { useInjectedWallets, type InjectedWallet } from "@/lib/injectedWallets";
@@ -67,7 +68,7 @@ export function WelcomeView() {
         <h1 className="font-display font-extrabold text-[clamp(44px,6vw,76px)] leading-[0.92] tracking-[-0.05em]">Get patched.<br />Get paid.</h1>
         <StoryPanel className="max-w-[600px] w-full" />
         <p className="flex items-center gap-2 text-sm">
-          <Lock size={15} className="flex-none" /> <span>Sign-in, wallets and one-tap bids powered by <b>Privy</b></span>
+          <Lock size={15} className="flex-none" /> <span className="inline-flex items-center gap-1.5 flex-wrap">Sign-in, wallets and one-tap bids powered by <PrivyLogo height={15} /></span>
         </p>
       </section>
 
@@ -130,7 +131,7 @@ function SignInCard() {
   return (
     <div className="w-full max-w-[420px] min-w-0 rounded-3xl bg-[var(--card)] border-[1.5px] border-[var(--soft)] shadow-[0_16px_48px_rgba(11,11,12,0.10)] p-6 sm:p-7 grid grid-cols-[minmax(0,1fr)] gap-4">
       <span className="justify-self-center inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-[var(--soft)] text-xs font-semibold">
-        <ShieldCheck size={13} /> Secured by <b>Privy</b>
+        <ShieldCheck size={13} /> Secured by <PrivyLogo height={13} />
       </span>
       <div className="text-center grid gap-1">
         <h2 className="text-2xl font-extrabold">Welcome to Patched</h2>

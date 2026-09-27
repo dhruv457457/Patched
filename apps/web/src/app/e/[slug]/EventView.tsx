@@ -166,14 +166,14 @@ export function EventView({ event, cards: wire, leaderboards, wall }: { event: E
           </section>
 
           {wall.length > 0 && (
-            <aside className="grid gap-3 lg:sticky lg:top-4">
+            <aside className="grid grid-cols-[minmax(0,1fr)] gap-3 min-w-0 lg:sticky lg:top-4">
               <h2 className="text-xl font-extrabold flex items-center gap-2"><Zap size={18} /> Live wall</h2>
-              <ol className="grid gap-2 list-none m-0 p-0">
+              <ol className="grid grid-cols-[minmax(0,1fr)] gap-2 list-none m-0 p-0">
                 {wall.map((b) => (
                   <li key={b.key}>
                     <Link href={b.href} className="flex gap-2.5 items-start rounded-xl p-2.5 no-underline text-[var(--ink)] hover:bg-[var(--soft)]">
                       <Avatar src={b.logo} name={b.who} wallet={b.wallet} size={32} className="!rounded-lg" />
-                      <span className="text-sm leading-snug min-w-0">
+                      <span className="text-sm leading-snug min-w-0 flex-1">
                         <b>{b.who}</b> {b.buyNow ? "bought" : "bid"} <b className="font-mono">{formatUsdc(b.amount)}</b> on {b.label}
                         <span className="block text-xs text-[var(--muted)] truncate">{b.title} · {mounted ? formatTimeAgo(b.time) : ""}</span>
                       </span>

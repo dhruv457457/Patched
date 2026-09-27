@@ -2,15 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { BadgeCheck, Check, Clock, ExternalLink, Flame, Fuel, Link2, RotateCcw, ShieldCheck } from "lucide-react";
+import { ArrowRight, BadgeCheck, Check, Clock, Crown, ExternalLink, Link2, Lock, Plus, Repeat, ShieldCheck, Trophy } from "lucide-react";
+import NumberFlow from "@number-flow/react";
 import { LogoMark } from "@/components/brand/Logo";
+import { Avatar as WalletAvatar } from "@/components/ui/Avatar";
 import { SurfaceFigure } from "@/components/surface/SurfaceFigure";
 import type { PatchData, PatchHandle } from "@/components/surface/Patch";
-import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
-import { Sheet } from "@/components/ui/Sheet";
 import { Seg } from "@/components/ui/Seg";
 import { toast } from "@/components/ui/Toast";
 import { formatCountdown, formatShortAddress, formatTimeAgo, formatUsdc, parseUsdc } from "@/lib/format";
@@ -28,14 +27,13 @@ import { MilestoneList } from "@/components/market/MilestoneList";
 import { DisputeSheet } from "@/components/market/DisputeSheet";
 import { AutoBidPanel } from "@/components/market/AutoBidPanel";
 import { SweepPanel } from "@/components/market/SweepPanel";
-import { Burst, SpotBubble } from "@/components/market/SpotBubble";
-import { StakePanel } from "@/components/market/StakePanel";
+import { Burst } from "@/components/market/SpotBubble";
 import { ListingTools } from "@/components/market/ListingTools";
 import { EditableText } from "@/components/market/EditableText";
 import { PAGE_ACCENTS, PAGE_SECTIONS, type ListingPage, type PageAccent, type PageSection } from "@/lib/market/page";
 import { useAuthedFetch } from "@/lib/authedFetch";
 import { Eye, EyeOff, Pencil, RotateCcw as ResetIcon, Save } from "lucide-react";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { DeliveryView } from "@/lib/market/server";
 import { useTx } from "@/lib/market/useTx";
 import { friendlyError } from "@/lib/market/useBid";
@@ -47,6 +45,8 @@ const STATUS_LABEL: Record<number, string> = {
   4: "Creator missed a deadline", 5: "Cancelled", 6: "Rejected", 7: "Closed with no bids",
 };
 const usd = (v: bigint) => formatUsdc(Number(v) / 1e6);
+const USD_FORMAT = { style: "currency", currency: "USD", maximumFractionDigits: 2, minimumFractionDigits: 0 } as const;
+const MILESTONE_COLORS = ["var(--p3)", "var(--p4)", "var(--p2)", "var(--p1)"];
 
 /** Same rule as the contract's _minNext, capped at buy-now. */
 function minNextFor(p: LivePatch, minIncrement: bigint, minIncrementBps: number): bigint {
@@ -81,7 +81,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
       toast(`You got outbid on ${bid.label}. Your USDC is back in your wallet.`, {
         action: p && next < p.buyNow
           ? { label: `Bid ${usd(next)}`, onClick: () => rebid(bid.patchId, next) }
-          : { label: "Bid again", onClick: () => openSheet(bid.patchId) },
+          : { label: "Bid again", onClick: () => focusSpot(bid.patchId) },
       });
     }
   });
@@ -97,9 +97,9 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
   }, [endsAt]);
 
   const [selectedId, setSelectedId] = useState<number>(() => (patches.find((p) => p.topBidder) ?? patches[0]).id);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  // The bid bubble on the stage, and the confetti burst when you take the lead.
-  const [bubbleId, setBubbleId] = useState<number | null>(null);
+  // The spot whose bid panel is open on the board.
+  const [openId, setOpenId] = useState<number | null>(null);
+  const reduce = useReducedMotion();
   // Creator page editing: `saved` is what visitors see, `draft` is what the creator is changing.
   const authedFetch = useAuthedFetch();
   const [saved, setSaved] = useState<ListingPage>(() => listing.page);
@@ -136,17 +136,21 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
   /** A bidder's display name: you, the brand name when they lead a spot, or the short address. */
   const bidderName = (w: string) => (w === me ? "You" : patches.find((p) => p.topBidder === w && p.brandName)?.brandName ?? formatShortAddress(w));
 
-  function openSheet(patchId: number) {
-    const p = patches.find((x) => x.id === patchId);
+  /** Open a spot's bid panel on the board (from the photo, a row, a toast or the phone bar), at the minimum bid. */
+  function focusSpot(patchId: number, { scroll = true }: { scroll?: boolean } = {}) {
+    const p = patchesRef.current.find((x) => x.id === patchId);
     if (!p) return;
     setSelectedId(patchId);
     setViewSide(p.side);
     setAmountText(String(Number(minNext(p)) / 1e6));
     reset();
-    setSheetOpen(true);
+    setOpenId(patchId);
+    if (scroll) {
+      requestAnimationFrame(() => document.getElementById(`spot-${patchId}`)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" }));
+    }
   }
 
-  /** One-tap bid from the bubble. */
+  /** Place a bid and celebrate on the photo when it lands. */
   async function quickBid(p: LivePatch, amount: bigint) {
     setSelectedId(p.id);
     const ok = await bid(listing.id, p.id, amount);
@@ -161,43 +165,23 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
 
   /**
    * One-tap rebid from the outbid toast, at the amount the button showed. If the price moved again since,
-   * open the bubble at the new minimum instead of bidding an amount that would fail.
+   * open the spot at the new minimum instead of bidding an amount that would fail.
    */
   function rebid(patchId: number, amount: bigint) {
     const p = patchesRef.current.find((x) => x.id === patchId);
     if (!p || p.bought) return;
-    openBubble(p);
+    focusSpot(p.id);
     if (minNext(p) === amount) void quickBid(p, amount);
   }
 
-  /** Scroll to a part of the page, without the glide for people who asked for less motion. */
-  function jumpTo(id: string) {
-    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    document.getElementById(id)?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
-  }
-
-  /** Open the bubble for a spot (from a card or the stage), switching to its view. */
-  function openBubble(p: LivePatch) {
-    setSelectedId(p.id);
-    setViewSide(p.side);
-    reset();
-    setBubbleId(p.id);
-    document.getElementById("stage")?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-
-  async function placeBid() {
+  /** The bid from a spot's panel on the board, at the amount typed or picked. */
+  async function placeBid(p: LivePatch) {
     const amount = parseUsdc(amountText);
-    if (amount < minNext(selected)) {
-      toast(`Bid at least ${usd(minNext(selected))} to take the lead.`);
+    if (amount < minNext(p)) {
+      toast(`Bid at least ${usd(minNext(p))} to take the lead.`);
       return;
     }
-    const ok = await bid(listing.id, selected.id, amount);
-    if (ok) {
-      setSheetOpen(false);
-      const bought = amount >= selected.buyNow;
-      toast(bought ? `${selected.label} is yours. Receipt NFT comes when bidding closes.` : `You lead ${selected.label} · ${usd(amount)} locked in escrow`);
-      if (bought) patchRefs.current[selected.id]?.stamp();
-    }
+    await quickBid(p, amount > p.buyNow ? p.buyNow : amount);
   }
 
   const figurePatches: PatchData[] = patches.filter((p) => listing.views.length < 2 || p.side === viewSide).map((p) => ({
@@ -217,7 +201,6 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
 
   const creatorLabel = listing.creatorName ?? (listing.creatorHandle ? `@${listing.creatorHandle}` : formatShortAddress(listing.creator));
   const busy = txStatus === "signing" || txStatus === "confirming";
-  const bubble = bubbleId === null ? null : patches.find((p) => p.id === bubbleId) ?? null;
   const meta = listing.metadata;
   const deal = meta?.deal;
   const surfaceWord = deal?.idea ? deal.idea.toLowerCase()
@@ -247,11 +230,11 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
     { q: "What do I get?", a: "Your logo on the spot, a receipt NFT for it, and the proof photos. You can resell the spot while the listing is running." },
     { q: "Which logo format works?", a: "Add your logo on My bids: PNG, SVG or WebP, with a transparent background for the cleanest print." },
   ];
-  const pickSpot = (p: LivePatch) => {
-    setSelectedId(p.id);
-    setViewSide(p.side);
-    document.getElementById("stage")?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
+  const rec = listing.creatorRecord;
+  // The board groups spots by view (front / back, or the sides of a car) in the order the views are shown.
+  const groups = listing.views.length > 1
+    ? listing.views.map((v) => ({ id: v.id, label: v.label, patches: patches.filter((p) => p.side === v.id) })).filter((g) => g.patches.length)
+    : [{ id: "all", label: "", patches }];
 
   /**
    * Saving is queued, not awaited: the page shows the new version and the editor closes right away, and saves run
@@ -292,17 +275,17 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
 
   return (
     <main
-      className="pb-24"
+      className="pb-28"
       style={{ "--accent": accent.accent, "--accent-soft": accent.soft, "--on-accent": accent.on, "--accent-text": accent.text } as React.CSSProperties}
     >
       <div className="wrap pt-5 flex items-center gap-3 flex-wrap">
         {/* The creator's own page: only a small mark says where it's hosted. */}
-        <Link href="/" className="group inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--line)] bg-[var(--card)] pl-1.5 pr-3 py-1 text-xs font-semibold no-underline text-[var(--ink)] hover:bg-[var(--soft)]">
+        <Link href="/" className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--soft)] bg-[var(--card)] pl-1.5 pr-3 py-1 text-xs font-semibold no-underline text-[var(--ink)] hover:border-[var(--line)]">
           <LogoMark size={20} /> Made with Patched <span className="text-[var(--muted)] hidden sm:inline">· Open the app</span>
         </Link>
-        <Chip variant="monad" className="ml-auto">USDC · Monad</Chip>
+        <span className="ml-auto text-xs font-semibold text-[var(--muted)] hidden sm:inline">USDC on Monad</span>
         <button
-          className="btn-base btn-small"
+          className="h-8 px-3 rounded-full border-[1.5px] border-[var(--soft)] bg-[var(--card)] text-xs font-semibold inline-flex items-center gap-1.5 hover:border-[var(--line)] ml-auto sm:ml-0"
           onClick={() => navigator.clipboard.writeText(window.location.href).then(() => toast("Link copied. Paste it anywhere.")).catch(() => {})}
         >
           <Link2 size={13} /> Copy link
@@ -310,13 +293,13 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
       </div>
       {isCreator && (
         <div className="wrap mt-4">
-          <div className="card-surface bg-[var(--accent-soft)] p-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="rounded-2xl bg-[var(--accent-soft)] px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
             <span className="text-sm font-semibold">
               {editing ? "Editing your page. Click any dashed text to change it; leave it empty to use the default." : "This is your sponsor page. Make it yours, then share it."}
             </span>
             <span className="flex gap-2">
               {!editing && (
-                <button className="btn-base btn-small" onClick={() => { setDraft(saved); setEditing(true); setBubbleId(null); }}>
+                <button className="btn-base btn-small" onClick={() => { setDraft(saved); setEditing(true); setOpenId(null); }}>
                   <Pencil size={13} /> Edit page
                 </button>
               )}
@@ -326,277 +309,293 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
         </div>
       )}
 
-      {/* ── Phones: jump between the parts of a long page ── */}
-      <nav aria-label="On this page" className="lg:hidden sticky top-0 z-30 mt-3 bg-[var(--paper)]/95 backdrop-blur-md border-b-2 border-[var(--soft)]">
-        <div className="wrap flex gap-1.5 overflow-x-auto py-2">
-          {[
-            { id: "stage", label: "Photo" },
-            { id: "spots", label: "Spots" },
-            { id: "deal", label: "Deal" },
-            { id: "protection", label: "Protection" },
-            { id: "activity", label: "Activity" },
-            { id: "faq", label: "FAQ" },
-          ].filter((t) => t.id !== "protection" || (status !== 5 && status !== 6))
-            .filter((t) => t.id !== "deal" || !!(deal?.deliverables?.length || deal?.days))
-            .filter((t) => (t.id !== "activity" || shown("activity")) && (t.id !== "faq" || shown("faq")))
-            .map((t) => (
-              <button key={t.id} onClick={() => jumpTo(t.id)} className="flex-none rounded-full px-3 py-1.5 text-xs font-semibold border-[1.5px] border-[var(--line)] bg-[var(--card)]">
-                {t.label}
-              </button>
-            ))}
-        </div>
-      </nav>
-
-      {/* ── Hero ── */}
-      <section className="wrap mt-6 grid gap-8 lg:grid-cols-2 items-center">
-        <div className="grid gap-5 content-center">
-          <div className="flex items-center gap-2 flex-wrap text-sm">
-            <span className="w-9 h-9 rounded-xl border-2 border-[var(--line)] overflow-hidden grid place-items-center font-extrabold bg-[var(--p5)] text-[#0B0B0C] flex-none">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {listing.creatorAvatar ? <img src={listing.creatorAvatar} alt="" className="w-full h-full object-cover" /> : creatorLabel.replace("@", "").slice(0, 1).toUpperCase()}
-            </span>
-            <b>{creatorLabel}</b>
-            {listing.creatorVerified && <Chip variant="green"><Check size={12} /> X verified</Chip>}
-            {listing.eventName && (
-              <Link href={`/e/${listing.eventId}`} className="no-underline" title="See every listing at this event">
-                <Chip variant="orange">
-                  {listing.eventName}
-                  {eventDate ? ` · ${eventDate}` : ""}
-                  {listing.eventCity ? ` · ${listing.eventCity}` : ""}
-                </Chip>
-              </Link>
-            )}
-          </div>
-          <EditableText
-            as="h1"
-            editing={editing}
-            value={pg.headline}
-            fallback={defaultHeadline}
-            maxLength={80}
-            onChange={(v) => setPg({ headline: v })}
-            className="text-[2.6rem] sm:text-6xl font-extrabold tracking-tight leading-[0.98]"
-          />
-          <EditableText
-            editing={editing}
-            value={pg.intro}
-            fallback={`${listing.title}. ${patches.length} logo spots on my ${surfaceWord}, each its own live auction. Brands bid in USDC, and the money sits in escrow until I show up.`}
-            maxLength={300}
-            multiline
-            onChange={(v) => setPg({ intro: v })}
-            className="text-lg text-[var(--muted)] max-w-xl"
-          />
-
-          <Card className="p-4 grid gap-3">
-            <div className="flex items-end justify-between gap-3 flex-wrap">
-              <div>
-                <b className="font-mono text-3xl tabular-nums">{usd(escrow)}</b>
-                <span className="text-sm text-[var(--muted)]"> bid of {usd(goal)} if every spot sells at buy-now</span>
+      {/* ── The auction room: the photo on one side, every spot's live price and leader on the other ── */}
+      <section className="wrap mt-6 grid gap-8 lg:gap-12 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-start">
+        <div id="stage" className="lg:sticky lg:top-6 grid gap-3 scroll-mt-6">
+          <div className="rounded-[28px] bg-[var(--stage)] p-4 sm:p-6 grid gap-3">
+            {listing.views.length > 1 && (
+              <div className="flex justify-center overflow-x-auto">
+                <Seg options={listing.views.map((v) => ({ value: v.id, label: v.label }))} value={viewSide} onChange={setViewSide} size="small" />
               </div>
-              <span className="text-sm font-semibold">{withBids} of {patches.length} spots taken</span>
+            )}
+            <div className={cn("relative", listing.surface === "car" ? "w-full" : listing.surface === "hoodie" ? "max-w-[400px] mx-auto w-full" : "max-w-[340px] mx-auto w-full")}>
+              <SurfaceFigure
+                surface={listing.surface}
+                imageUrl={listing.views.find((v) => v.id === viewSide)?.image ?? listing.canvasImage}
+                patches={figurePatches}
+                mode={biddingOpen ? "interactive" : "static"}
+                selectedId={selectedId}
+                onSelect={(id) => focusSpot(Number(id))}
+                patchRefs={patchRefs}
+                animateDrop={intro}
+              />
+              <Burst key={burst?.n} x={burst?.x ?? 50} y={burst?.y ?? 50} show={!!burst} />
             </div>
-            <div className="h-3 rounded-full bg-[var(--soft)] overflow-hidden border-[1.5px] border-[var(--line)]">
+          </div>
+          <div className="flex gap-4 justify-center flex-wrap text-[13px] text-[var(--muted)]">
+            <span className="inline-flex items-center gap-1.5"><i className="sw-legend filled" />Has a bid</span>
+            <span className="inline-flex items-center gap-1.5"><i className="sw-legend open" />Open</span>
+            {biddingOpen && <span>Tap a spot to bid</span>}
+          </div>
+        </div>
+
+        <div className="grid gap-8 min-w-0">
+          <header className="grid gap-4">
+            <div className="flex items-center gap-2 flex-wrap text-sm">
+              <Avatar creatorAvatar={listing.creatorAvatar} label={creatorLabel} />
+              <b>{creatorLabel}</b>
+              {listing.creatorVerified && <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--green)]"><BadgeCheck size={14} /> X verified</span>}
+              {listing.eventName && (
+                <Link href={`/e/${listing.eventId}`} className="no-underline text-xs font-semibold rounded-full bg-[var(--accent-soft)] text-[var(--accent-text)] px-2.5 py-1" title="See every listing at this event">
+                  {listing.eventName}{eventDate ? ` · ${eventDate}` : ""}{listing.eventCity ? ` · ${listing.eventCity}` : ""}
+                </Link>
+              )}
+            </div>
+            <EditableText
+              as="h1"
+              editing={editing}
+              value={pg.headline}
+              fallback={defaultHeadline}
+              maxLength={80}
+              onChange={(v) => setPg({ headline: v })}
+              className="text-[2.6rem] sm:text-6xl font-extrabold tracking-tight leading-[0.98]"
+            />
+            <EditableText
+              editing={editing}
+              value={pg.intro}
+              fallback={`${listing.title}. ${patches.length} logo spots on my ${surfaceWord}, each its own live auction. Brands bid in USDC, and the money sits in escrow until I show up.`}
+              maxLength={300}
+              multiline
+              onChange={(v) => setPg({ intro: v })}
+              className="text-lg text-[var(--muted)] max-w-xl"
+            />
+          </header>
+
+          {/* The auction at a glance */}
+          <div className="grid gap-3">
+            <div className="flex items-end justify-between gap-4 flex-wrap">
+              <div className="grid">
+                <span className="eyebrow">In escrow</span>
+                <span className="flex items-baseline gap-2">
+                  <b className="font-mono text-4xl tabular-nums"><NumberFlow value={Number(escrow) / 1e6} format={USD_FORMAT} /></b>
+                  <span className="text-sm text-[var(--muted)]">of {usd(goal)} if every spot sells</span>
+                </span>
+              </div>
+              <div className="grid text-right">
+                <span className="eyebrow inline-flex items-center gap-1.5 justify-end">
+                  {biddingOpen && <span className="dot live" />}{biddingOpen ? "Ends in" : "Auction"}
+                </span>
+                <b className={cn("font-mono text-2xl tabular-nums", countdown.isUrgent && biddingOpen && "text-[var(--accent-text)]")}>
+                  {!mounted ? " " : biddingOpen ? countdown.text : STATUS_LABEL[status] ?? "Closed"}
+                </b>
+              </div>
+            </div>
+            <div className="h-1.5 rounded-full bg-[var(--soft)] overflow-hidden">
               <div className="h-full bg-[var(--accent)] transition-[width] duration-700" style={{ width: `${progress}%` }} />
             </div>
-            <div className="flex items-center justify-between gap-3 flex-wrap text-sm">
-              <span className={cn("font-semibold inline-flex items-center gap-1.5", countdown.isUrgent && "text-[var(--accent-text)]")}>
-                <Clock size={14} />
-                {!mounted ? " " : finalMinutes ? `Final minutes: ${countdown.text} left. Any bid adds 5 minutes.` : biddingOpen ? `Bidding ends in ${countdown.text}` : STATUS_LABEL[status] ?? "Closed"}
-              </span>
-              {watchers > 1 && (
-                <span className="inline-flex items-center gap-1.5 text-[var(--muted)]">
-                  <Eye size={14} /> {watchers} watching now
-                </span>
-              )}
-              {biddingOpen && !isCreator && <a href="#spots" className="btn-base btn-primary btn-small">Pick a spot</a>}
-            </div>
-          </Card>
-        </div>
+            <p className="text-sm text-[var(--muted)] flex flex-wrap gap-x-4 gap-y-1">
+              <span><b className="text-[var(--ink)]">{withBids}</b> of {patches.length} spots have a bid</span>
+              <span><b className="text-[var(--ink)]">{bids.length}</b> bid{bids.length === 1 ? "" : "s"} so far</span>
+              {watchers > 1 && <span className="inline-flex items-center gap-1"><Eye size={14} /> {watchers} watching</span>}
+              {finalMinutes && <span className="font-semibold text-[var(--accent-text)]">Final minutes: any bid adds 5 minutes</span>}
+            </p>
+          </div>
 
-        <Card className="p-4 sm:p-5 scroll-mt-32" id="stage">
-          {listing.views.length > 1 && (
-            <div className="flex justify-center mb-3 overflow-x-auto">
-              <Seg options={listing.views.map((v) => ({ value: v.id, label: v.label }))} value={viewSide} onChange={setViewSide} />
-            </div>
-          )}
-          <div
-            className={cn("relative", listing.surface === "car" ? "w-full" : listing.surface === "hoodie" ? "max-w-[440px] mx-auto" : "max-w-[380px] mx-auto")}
-            onClick={(e) => { if (!(e.target as HTMLElement).closest(".patch")) setBubbleId(null); }}
-          >
-            <SurfaceFigure
-              surface={listing.surface}
-              imageUrl={listing.views.find((v) => v.id === viewSide)?.image ?? listing.canvasImage}
-              patches={figurePatches}
-              mode={biddingOpen ? "interactive" : "static"}
-              selectedId={selectedId}
-              onSelect={(id) => {
-                setSelectedId(Number(id));
-                reset();
-                setBubbleId(Number(id));
-              }}
-              patchRefs={patchRefs}
-              animateDrop={intro}
-            />
-            <AnimatePresence>
-              {bubble && (listing.views.length < 2 || bubble.side === viewSide) && (
-                <SpotBubble
-                  patch={bubble}
-                  minNext={minNext(bubble)}
-                  heat={spotHeat(bids, bubble.id)}
-                  stake={listing.bond}
-                  history={bids.filter((b) => b.patchId === bubble.id).slice(0, 3).map((b) => ({ id: b.id, who: bidderName(b.bidder), amount: b.amount, time: b.time }))}
-                  me={me}
-                  isCreator={isCreator}
-                  authenticated={authenticated}
-                  biddingOpen={biddingOpen}
-                  busy={busy}
-                  error={txStatus === "error" ? error : null}
-                  onLogin={login}
-                  onBid={(amount) => quickBid(bubble, amount)}
-                  onMore={(amount) => { openSheet(bubble.id); setAmountText(String(Number(amount) / 1e6)); setBubbleId(null); }}
-                  onClose={() => setBubbleId(null)}
-                />
-              )}
-            </AnimatePresence>
-            <Burst key={burst?.n} x={burst?.x ?? 50} y={burst?.y ?? 50} show={!!burst} />
-          </div>
-          <div className="flex gap-4 justify-center flex-wrap text-[13px] muted mt-3">
-            <span className="inline-flex items-center gap-1.5"><i className="sw-legend filled" />Taken</span>
-            <span className="inline-flex items-center gap-1.5"><i className="sw-legend open" />Open</span>
-            <span>Tap a spot to bid</span>
-          </div>
-        </Card>
-      </section>
-
-      {/* ── Spots ── */}
-      <section id="spots" className="wrap mt-14 grid gap-4 scroll-mt-32 lg:scroll-mt-20">
-        <div className="flex items-end justify-between gap-3 flex-wrap">
-          <div>
-            <span className="eyebrow">{patches.length} spots</span>
-            <EditableText as="h2" editing={editing} value={pg.titles?.spots} fallback="Pick your spot" maxLength={60} onChange={(v) => setTitle("spots", v)} className="text-3xl sm:text-4xl font-extrabold mt-1" />
-          </div>
-          <p className="text-sm text-[var(--muted)] flex items-center gap-1.5"><Clock size={14} /> A bid in the last 5 minutes adds 5 minutes to the clock</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {patches.map((p) => {
-            const mine = !!me && p.topBidder === me;
-            const tier = PATCH_TIERS[p.tier];
-            const viewName = listing.views.length > 1 ? listing.views.find((v) => v.id === p.side)?.label : null;
-            const heat = mounted && biddingOpen && !p.bought ? spotHeat(bids, p.id) : null;
-            return (
-              <div
-                key={p.id}
-                id={`spot-${p.id}`}
-                className={cn("card-surface p-4 grid gap-3 content-start", p.id === selectedId && "ring-4 ring-[var(--accent)]/40")}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <button onClick={() => pickSpot(p)} className="text-left">
-                    <span className="font-mono text-xs text-[var(--muted)]">
-                      {String(p.id + 1).padStart(2, "0")}
-                      {viewName ? ` · ${viewName}` : ""}
-                    </span>
-                    <h3 className="text-xl font-extrabold leading-tight">{p.label}</h3>
-                  </button>
-                  <span
-                    className={cn(
-                      "text-[11px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5 border-[1.5px] flex-none",
-                      p.tier === "mega"
-                        ? "bg-[var(--accent)] text-[var(--on-accent)] border-[var(--line)]"
-                        : p.tier === "prime"
-                          ? "bg-[var(--p3)] text-[#0B0B0C] border-[#0B0B0C]"
-                          : "bg-[var(--card)] border-[var(--soft)]",
-                    )}
-                  >
-                    {tier.label}
-                  </span>
-                </div>
-                <EditableText
-                  editing={editing}
-                  value={pg.perks?.[String(p.id)]}
-                  fallback={p.perks ?? tier.blurb}
-                  maxLength={120}
-                  onChange={(v) => setDraft((d) => ({ ...d, perks: { ...d.perks, [String(p.id)]: v } }))}
-                  className="text-sm text-[var(--muted)]"
-                />
-                <div className="flex items-end justify-between gap-2">
-                  <div>
-                    <b className="font-mono text-2xl tabular-nums">{usd(p.topBid > 0n ? p.topBid : p.floor)}</b>
-                    <span className="block text-xs text-[var(--muted)]">
-                      {p.bought ? "bought" : p.topBid > 0n ? `top bid · buy now ${usd(p.buyNow)}` : `starting bid · buy now ${usd(p.buyNow)}`}
-                    </span>
-                  </div>
-                  {p.bought ? <Pill variant="won">Bought</Pill> : mine ? <Pill variant="top">You lead</Pill> : p.topBidder ? <Pill variant="top">Taken</Pill> : <Pill variant="wait">Open</Pill>}
-                </div>
-                {p.topBidder && (
-                  <p className="text-sm flex items-center gap-1.5 min-w-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {p.logoUrl && <img src={p.logoUrl} alt="" className="w-5 h-5 object-contain flex-none" />}
-                    <span className="truncate">Leading: <b>{mine ? "You" : p.brandName ?? formatShortAddress(p.topBidder)}</b></span>
-                    {p.brandVerified && <BadgeCheck size={14} className="text-[var(--green)] flex-none" aria-label={`Verified brand · ${p.brandVerified}`} />}
-                  </p>
-                )}
-                {heat?.war ? (
-                  <p className="text-xs font-semibold text-[var(--accent-text)] flex items-center gap-1.5">
-                    <Flame size={14} /> Bidding war: {heat.recent} bids from {heat.bidders} brands in 15 min
-                  </p>
-                ) : heat && heat.recent > 0 ? (
-                  <p className="text-xs text-[var(--muted)]">{heat.recent} {heat.recent === 1 ? "bid" : "bids"} in the last 15 min</p>
-                ) : null}
-                {biddingOpen && !p.bought && !isCreator && (
-                  <div className="flex gap-2">
-                    <Button variant="primary" size="small" onClick={() => openBubble(p)}>Bid {usd(minNext(p))}</Button>
-                    <Button size="small" onClick={() => { openSheet(p.id); setAmountText(String(Number(p.buyNow) / 1e6)); }}>Buy {usd(p.buyNow)}</Button>
-                  </div>
-                )}
+          {/* ── The spot board ── */}
+          <section id="spots" className="grid gap-3 scroll-mt-20">
+            <div className="flex items-end justify-between gap-3 flex-wrap">
+              <div>
+                <span className="eyebrow">{patches.length} spots · each its own auction</span>
+                <EditableText as="h2" editing={editing} value={pg.titles?.spots} fallback="Pick your spot" maxLength={60} onChange={(v) => setTitle("spots", v)} className="text-3xl font-extrabold mt-1" />
               </div>
-            );
-          })}
-        </div>
-        {biddingOpen && !isCreator && <SweepPanel listingId={listing.id} patches={patches} minNext={minNext} me={me} />}
-      </section>
-
-      {/* ── The deal: what every spot includes, for how long ── */}
-      {deal && (deal.deliverables?.length || deal.days) && (
-        <section id="deal" className="wrap mt-14 grid gap-4 scroll-mt-32">
-          <div>
-            <span className="eyebrow">The deal</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold mt-1">What every brand gets</h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_280px] items-start">
-            {!!deal.deliverables?.length && (
-              <ul className="card-surface p-5 grid gap-3 list-none m-0">
-                {deal.deliverables.map((d) => (
-                  <li key={d} className="flex gap-3 items-start">
-                    <span className="w-6 h-6 rounded-lg bg-[var(--green-soft)] text-[var(--green)] grid place-items-center flex-none mt-px"><Check size={14} strokeWidth={3} /></span>
-                    <span>{d}</span>
-                  </li>
-                ))}
-                <li className="text-xs text-[var(--muted)] pt-1">Each one is part of the proof. You get 72 hours to check it before any money moves.</li>
-              </ul>
-            )}
-            <div className="card-surface p-5 grid gap-2 content-start">
-              {deal.idea && <p><b>What it is:</b> {deal.idea}</p>}
-              {listing.surface === "car" && deal.vehicle && <p><b>Vehicle:</b> {deal.vehicle[0].toUpperCase() + deal.vehicle.slice(1)}</p>}
-              {!!deal.days && <p><b>{deal.days} event day{deal.days > 1 ? "s" : ""}</b>{listing.eventName ? ` at ${listing.eventName}` : ""}</p>}
-              {deal.place && <p>{deal.place === "loop" ? "Loops around the venue all day." : "Parked right by the entrance."}</p>}
-              <p className="text-sm text-[var(--muted)]">
-                Paid in {listing.milestoneBps.length} step{listing.milestoneBps.length > 1 ? "s" : ""}: {listing.milestoneBps.map((b) => `${b / 100}%`).join(" · ")}
-              </p>
+              {biddingOpen && <p className="text-xs text-[var(--muted)] flex items-center gap-1.5"><Clock size={13} /> A bid in the last 5 minutes adds 5 minutes</p>}
             </div>
-          </div>
-        </section>
-      )}
 
-      {/* ── What protects the brand: creator stake, record, payout plan ── */}
-      {status !== 5 && status !== 6 && (
-        <section id="protection" className="wrap mt-14 scroll-mt-32">
-          <StakePanel listing={listing} creatorLabel={creatorLabel} status={status} mounted={mounted} />
-        </section>
-      )}
+            <div className="rounded-3xl border-[1.5px] border-[var(--soft)] bg-[var(--card)] overflow-hidden">
+              <div className="hidden sm:grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto] gap-4 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)] border-b-[1.5px] border-[var(--soft)]">
+                <span>Spot</span><span>Leading</span><span className="text-right w-[92px]">{biddingOpen ? "Top bid" : "Price"}</span>
+              </div>
+              {groups.map((g) => (
+                <div key={g.id}>
+                  {groups.length > 1 && (
+                    <div className="px-5 pt-3 pb-1 text-xs font-semibold text-[var(--muted)]">{g.label}</div>
+                  )}
+                  {g.patches.map((p) => {
+                    const open = openId === p.id;
+                    const mine = !!me && p.topBidder === me;
+                    const tier = PATCH_TIERS[p.tier];
+                    const heat = mounted && biddingOpen && !p.bought ? spotHeat(bids, p.id) : null;
+                    const history = bids.filter((b) => b.patchId === p.id);
+                    return (
+                      <div key={p.id} id={`spot-${p.id}`} className={cn("border-b-[1.5px] border-[var(--soft)] last:border-b-0 scroll-mt-24 transition-colors", open && "bg-[var(--paper)]")}>
+                        <button
+                          type="button"
+                          aria-expanded={open}
+                          onClick={() => (open ? setOpenId(null) : focusSpot(p.id, { scroll: false }))}
+                          onMouseEnter={() => setSelectedId(p.id)}
+                          className="w-full grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto] gap-x-4 gap-y-1 items-center px-5 py-3.5 text-left hover:bg-[var(--paper)]"
+                        >
+                          <span className="flex items-center gap-3 min-w-0">
+                            <span className={cn("w-8 h-8 rounded-xl grid place-items-center font-mono text-xs font-bold flex-none border-[1.5px]",
+                              p.topBidder ? "border-[#0B0B0C] text-[#0B0B0C]" : "border-dashed border-[var(--accent-text)] text-[var(--accent-text)]")}
+                              style={p.topBidder ? { background: `var(--${PASTELS[p.id % PASTELS.length]})` } : undefined}>
+                              {String(p.id + 1).padStart(2, "0")}
+                            </span>
+                            <span className="grid min-w-0">
+                              <b className="truncate">{p.label}</b>
+                              <span className={cn("text-xs truncate", p.tier === "mega" || p.tier === "prime" ? "text-[var(--accent-text)] font-semibold" : "text-[var(--muted)]")}>
+                                {tier.label}{heat?.war ? " · bidding war" : heat && heat.recent > 0 ? ` · ${heat.recent} bid${heat.recent === 1 ? "" : "s"} in 15 min` : ""}
+                              </span>
+                            </span>
+                          </span>
+                          <span className="hidden sm:flex items-center gap-2 min-w-0 text-sm">
+                            <Leader p={p} me={me} />
+                          </span>
+                          <span className="grid justify-items-end w-[92px]">
+                            <b className="font-mono text-lg tabular-nums">
+                              <NumberFlow value={Number(p.topBid > 0n ? p.topBid : p.floor) / 1e6} format={USD_FORMAT} />
+                            </b>
+                            <span className={cn("text-[11px]", mine ? "text-[var(--green)] font-semibold" : "text-[var(--muted)]")}>
+                              {p.bought ? "bought" : mine ? "you lead" : p.topBid > 0n ? `${history.length} bid${history.length === 1 ? "" : "s"}` : "starts at"}
+                            </span>
+                          </span>
+                          <span className="sm:hidden col-span-2 flex items-center gap-2 text-sm pl-11 min-w-0"><Leader p={p} me={me} /></span>
+                        </button>
+                        {editing && (
+                          <div className="px-5 pb-3 pl-16">
+                            <EditableText
+                              editing
+                              value={pg.perks?.[String(p.id)]}
+                              fallback={p.perks ?? tier.blurb}
+                              maxLength={120}
+                              onChange={(v) => setDraft((d) => ({ ...d, perks: { ...d.perks, [String(p.id)]: v } }))}
+                              className="text-sm text-[var(--muted)]"
+                            />
+                          </div>
+                        )}
+                        <AnimatePresence initial={false}>
+                          {open && !editing && (
+                            <motion.div
+                              initial={reduce ? false : { height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="px-5 pb-5 grid gap-5 md:grid-cols-[minmax(0,1fr)_230px]">
+                                <div className="grid gap-3 content-start min-w-0">
+                                  <p className="text-sm text-[var(--muted)]">{pg.perks?.[String(p.id)] || p.perks || tier.blurb}</p>
+                                  {!biddingOpen || p.bought ? (
+                                    <p className="text-sm font-semibold">{p.bought ? "Bought at the buy-now price." : "Bidding is closed."}</p>
+                                  ) : isCreator ? (
+                                    <p className="rounded-xl bg-[var(--soft)] p-3 text-sm">
+                                      This is your listing, so you can&apos;t bid on it.{" "}
+                                      <Link href={`/share/${listing.id}`} className="font-semibold underline">Share it</Link> so brands see it.
+                                    </p>
+                                  ) : (
+                                    <>
+                                      <div className="amt !border-[1.5px]">
+                                        <span>$</span>
+                                        <input aria-label={`Your bid for ${p.label}`} inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} disabled={busy} />
+                                        <span>USDC</span>
+                                      </div>
+                                      <div className="flex gap-1.5 flex-wrap">
+                                        {[
+                                          { label: `Min ${usd(minNext(p))}`, value: minNext(p) },
+                                          { label: "+$5", value: minNext(p) + 5_000_000n },
+                                          { label: "+$10", value: minNext(p) + 10_000_000n },
+                                          { label: `Buy now ${usd(p.buyNow)}`, value: p.buyNow },
+                                        ].filter((c, i, all) => c.value <= p.buyNow && all.findIndex((x) => x.value === c.value) === i).map((c) => (
+                                          <button key={c.label} type="button" disabled={busy} onClick={() => setAmountText(String(Number(c.value) / 1e6))}
+                                            className={cn("h-8 px-3 rounded-full text-xs font-semibold border-[1.5px] transition-colors",
+                                              parseUsdc(amountText) === c.value ? "bg-[var(--ink)] text-[var(--paper)] border-[var(--ink)]" : "border-[var(--soft)] hover:border-[var(--muted)]")}>
+                                            {c.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                      {!authenticated ? (
+                                        <Button variant="primary" className="h-12 justify-center text-base" onClick={login}>Sign in to bid</Button>
+                                      ) : (
+                                        <Button variant="primary" className="h-12 justify-center text-base" onClick={() => placeBid(p)} disabled={busy}>
+                                          {txStatus === "signing" ? "Approving USDC…" : txStatus === "confirming" ? "Placing bid…" : parseUsdc(amountText) >= p.buyNow ? `Buy it for ${usd(p.buyNow)}` : `Bid ${amountText ? `$${amountText}` : ""}`}
+                                        </Button>
+                                      )}
+                                      {error && <p className="text-sm text-[var(--red)]" role="alert">{error}</p>}
+                                      <p className="text-xs text-[var(--muted)] leading-relaxed">
+                                        Your USDC goes into escrow, not to the creator. Outbid? It comes back right away.
+                                        {GAS_SPONSORED ? " No gas needed." : ""}
+                                      </p>
+                                      {hash && (
+                                        <a className="text-xs text-[var(--muted)] inline-flex items-center gap-1" href={`${EXPLORER}/tx/${hash}`} target="_blank" rel="noopener noreferrer">
+                                          View transaction <ExternalLink size={12} />
+                                        </a>
+                                      )}
+                                      {authenticated && (
+                                        <details className="group">
+                                          <summary className="text-sm font-semibold cursor-pointer list-none inline-flex items-center gap-1.5">
+                                            <Repeat size={14} /> Auto-bid: stay on top up to your limit
+                                          </summary>
+                                          <div className="mt-3">
+                                            <AutoBidPanel listingId={listing.id} patchId={p.id} label={p.label} minNext={minNext(p)} buyNow={p.buyNow} disabled={busy} />
+                                          </div>
+                                        </details>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                                <div className="grid gap-2 content-start">
+                                  <span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">Bids on this spot</span>
+                                  {history.length ? (
+                                    <ol className="grid list-none m-0 p-0">
+                                      {history.slice(0, 6).map((b, i) => (
+                                        <li key={b.id} className={cn("flex justify-between gap-2 py-1.5 text-sm border-b border-dashed border-[var(--soft)] last:border-b-0", i > 0 && "text-[var(--muted)]")}>
+                                          <span className="truncate">{i === 0 && <Crown size={12} className="inline mr-1 -mt-0.5 text-[var(--accent-text)]" />}{bidderName(b.bidder)}</span>
+                                          <span className="font-mono flex-none">{usd(b.amount)}<span className="text-[var(--muted)]">{mounted ? ` · ${ago(b.time)}` : ""}</span></span>
+                                        </li>
+                                      ))}
+                                    </ol>
+                                  ) : (
+                                    <p className="text-sm text-[var(--muted)]">No bids yet. The first bid at {usd(p.floor)} takes the lead.</p>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            {biddingOpen && !isCreator && <SweepPanel listingId={listing.id} patches={patches} minNext={minNext} me={me} />}
+          </section>
+
+          {/* Everything that just happened, across all spots */}
+          {shown("activity") && (
+            <section id="activity" className={cn("grid gap-2 scroll-mt-20", hidden("activity") && "opacity-40")}>
+              <span className="eyebrow inline-flex items-center gap-1.5"><span className="dot live" /> Latest bids</span>
+              {bids.length ? (
+                <ol className="grid list-none m-0 p-0">
+                  {bids.slice(0, 6).map((b) => (
+                    <li key={b.id} className="flex justify-between gap-3 py-2 text-sm border-b border-dashed border-[var(--soft)] last:border-b-0 [animation:feed-in_1.2s] motion-reduce:[animation:none]">
+                      <span className="min-w-0 truncate"><b>{bidderName(b.bidder)}</b> bid on {patches.find((p) => p.id === b.patchId)?.label ?? `Spot ${b.patchId + 1}`}</span>
+                      <span className="font-mono flex-none">{usd(b.amount)}<span className="text-[var(--muted)]">{mounted ? ` · ${ago(b.time)}` : ""}</span></span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-[var(--muted)]">No bids yet. The first one shows up here the moment it lands.</p>
+              )}
+            </section>
+          )}
+        </div>
+      </section>
 
       {delivery && (
-        <section className="wrap mt-14 grid gap-3">
+        <section className="wrap mt-20 grid gap-3">
           <div className="flex justify-between items-end gap-3 flex-wrap">
-            <h2 className="font-extrabold text-2xl">Delivery</h2>
+            <h2 className="font-extrabold text-3xl">Delivery</h2>
             {isCreator && <Link href={`/studio/${listing.id}`} className="btn-base btn-small">Manage your listing</Link>}
           </div>
           <p className="text-sm text-[var(--muted)] max-w-[70ch]">
@@ -634,155 +633,199 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
         </section>
       )}
 
-      {/* ── Wall of logos ── */}
-      {shown("sponsors") && (
-      <section className={cn("wrap mt-16 grid gap-4", hidden("sponsors") && "opacity-40")}>
-        <div>
-          <span className="eyebrow">Sponsors</span>
-          <EditableText as="h2" editing={editing} value={pg.titles?.sponsors} fallback={`Already on the ${surfaceWord}`} maxLength={60} onChange={(v) => setTitle("sponsors", v)} className="text-3xl sm:text-4xl font-extrabold mt-1" />
-        </div>
-        {leaders.length ? (
-          <div className="flex flex-wrap gap-3">
-            {leaders.map((p) => (
-              <div key={p.id} className="card-surface px-4 py-3 flex items-center gap-3">
-                {p.logoUrl ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={p.logoUrl} alt="" className="w-9 h-9 object-contain" />
-                ) : (
-                  <span className="w-9 h-9 rounded-lg bg-[var(--p2)] text-[#0B0B0C] border-[1.5px] border-[#0B0B0C] grid place-items-center font-extrabold">
-                    {(p.brandName ?? p.topBidder!.slice(2)).slice(0, 1).toUpperCase()}
-                  </span>
-                )}
-                <span className="grid">
-                  <b className="flex items-center gap-1">
-                    {p.topBidder === me ? "You" : p.brandName ?? formatShortAddress(p.topBidder!)}
-                    {p.brandVerified && <BadgeCheck size={14} className="text-[var(--green)]" />}
-                  </b>
-                  <span className="text-xs text-[var(--muted)]">{p.label} · {usd(p.topBid)}</span>
-                </span>
-              </div>
-            ))}
+      {/* ── The deal and what protects the brand ── */}
+      <section id="deal" className="wrap mt-20 grid gap-12 lg:grid-cols-2 scroll-mt-20">
+        <div className="grid gap-4 content-start">
+          <div>
+            <span className="eyebrow">The deal</span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold mt-1">What every brand gets</h2>
           </div>
-        ) : (
-          <Card className="p-5"><p className="text-[var(--muted)]">No logos yet. The first brand to bid gets the pick of the spots.</p></Card>
+          {!!deal?.deliverables?.length && (
+            <ul className="grid gap-3 list-none m-0 p-0">
+              {deal.deliverables.map((d) => (
+                <li key={d} className="flex gap-3 items-start text-[17px]">
+                  <span className="w-6 h-6 rounded-full bg-[var(--green-soft)] text-[var(--green)] grid place-items-center flex-none mt-0.5"><Check size={14} strokeWidth={3} /></span>
+                  <span>{d}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-[var(--muted)]">
+            {[
+              deal?.idea ? `It's ${deal.idea.toLowerCase()}.` : null,
+              listing.surface === "car" && deal?.vehicle ? `A ${deal.vehicle}, ${deal.place === "loop" ? "looping the venue all day" : "parked right by the entrance"}.` : null,
+              deal?.days ? `${deal.days} event day${deal.days > 1 ? "s" : ""}${listing.eventName ? ` at ${listing.eventName}` : ""}.` : null,
+              "Your logo is printed on your spot, and you keep a receipt NFT for it.",
+            ].filter(Boolean).join(" ")}
+          </p>
+        </div>
+
+        {status !== 5 && status !== 6 && (
+          <div id="protection" className="grid gap-4 content-start scroll-mt-20">
+            <div>
+              <span className="eyebrow">Your protection</span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold mt-1">{creatorLabel} has money on the line</h2>
+            </div>
+            <dl className="grid m-0">
+              <Fact icon={<ShieldCheck size={18} />} title={`${usd(listing.bond)} creator stake`}>
+                {status === 3 ? `${creatorLabel} delivered, so the stake went back to them.`
+                  : status === 4 ? `${creatorLabel} missed a deadline. The stake and unpaid escrow went to the spot holders.`
+                  : `Miss a proof deadline and this stake, plus all unpaid escrow, goes to the spot holders.`}
+              </Fact>
+              <Fact icon={<Trophy size={18} />} title={rec.completed + rec.failed > 0 ? `${rec.completed} delivered` : "First listing"}>
+                {rec.completed + rec.failed > 0
+                  ? `${rec.failed === 0 ? "No missed deadlines" : `${rec.failed} missed ${rec.failed === 1 ? "deadline" : "deadlines"}`} · ${usd(rec.earned)} earned on Patched`
+                  : "New creators have a spending cap until their first delivery, so the risk stays small."}
+              </Fact>
+              <Fact icon={<Lock size={18} />} title="Paid only on proof">
+                Your USDC sits in the contract. Each payment needs proof first, and you get 72 hours to dispute it.
+              </Fact>
+            </dl>
+            {listing.milestoneBps.length > 0 && (
+              <div className="grid gap-2">
+                <div className="flex h-2.5 rounded-full overflow-hidden gap-[3px]" aria-hidden="true">
+                  {listing.milestoneBps.map((bps, i) => <span key={i} style={{ width: `${bps / 100}%`, background: MILESTONE_COLORS[i % MILESTONE_COLORS.length] }} />)}
+                </div>
+                <ol className="grid gap-1.5 list-none m-0 p-0 text-sm">
+                  {listing.milestoneBps.map((bps, i) => (
+                    <li key={i} className="flex items-center gap-2.5">
+                      <span className="w-2.5 h-2.5 rounded-[3px] flex-none" style={{ background: MILESTONE_COLORS[i % MILESTONE_COLORS.length] }} />
+                      <b className="font-mono w-10">{bps / 100}%</b>
+                      <span className="flex-1 min-w-0 truncate">{meta?.milestones[i]?.name ?? `Milestone ${i + 1}`}</span>
+                      <span className="text-[var(--muted)] flex-none">
+                        {mounted && listing.deadlines[i] ? `proof by ${new Date(listing.deadlines[i]).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
         )}
       </section>
+
+      {/* ── Wall of logos ── */}
+      {shown("sponsors") && (
+        <section className={cn("wrap mt-20 grid gap-4", hidden("sponsors") && "opacity-40")}>
+          <div>
+            <span className="eyebrow">Sponsors</span>
+            <EditableText as="h2" editing={editing} value={pg.titles?.sponsors} fallback={`Already on the ${surfaceWord}`} maxLength={60} onChange={(v) => setTitle("sponsors", v)} className="text-3xl sm:text-4xl font-extrabold mt-1" />
+          </div>
+          {leaders.length ? (
+            <div className="flex flex-wrap gap-2.5">
+              {leaders.map((p) => (
+                <span key={p.id} className="inline-flex items-center gap-2.5 rounded-full bg-[var(--card)] border-[1.5px] border-[var(--soft)] pl-1.5 pr-4 py-1.5">
+                  <BrandMark p={p} size={30} />
+                  <span className="grid leading-tight">
+                    <b className="text-sm inline-flex items-center gap-1">
+                      {p.topBidder === me ? "You" : p.brandName ?? formatShortAddress(p.topBidder!)}
+                      {p.brandVerified && <BadgeCheck size={13} className="text-[var(--green)]" />}
+                    </b>
+                    <span className="text-xs text-[var(--muted)]">#{p.id + 1} {p.label}</span>
+                  </span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[var(--muted)]">No logos yet. The first brand to bid gets the pick of the spots.</p>
+          )}
+        </section>
       )}
 
       {/* ── How it works ── */}
       {shown("how") && (
-      <section className={cn("wrap mt-16 grid gap-4", hidden("how") && "opacity-40")}>
-        <div>
-          <span className="eyebrow">How it works</span>
-          <EditableText as="h2" editing={editing} value={pg.titles?.how} fallback="Four steps, all on-chain" maxLength={60} onChange={(v) => setTitle("how", v)} className="text-3xl sm:text-4xl font-extrabold mt-1" />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { t: "Pick a spot", d: "Every spot is its own auction. Bid, or buy it outright at the buy-now price." },
-            { t: "Bid in USDC", d: "One signature. If someone outbids you, your USDC comes straight back." },
-            { t: "Money waits in escrow", d: "Nothing goes to the creator until they post proof. You can dispute within 72 hours." },
-            {
-              t: deal?.idea ? "Get seen at the event" : listing.surface === "car" ? (deal?.place === "parked" ? "Get parked at the venue" : "Get driven around the venue") : "Get worn at the event",
-              d: "Your logo gets printed, shown and photographed. You keep a receipt NFT for your spot.",
-            },
-          ].map((step, i) => (
-            <Card key={step.t} className="p-5 grid gap-2 content-start">
-              <span className="w-9 h-9 rounded-xl bg-[var(--accent)] text-[var(--on-accent)] border-2 border-[var(--line)] grid place-items-center font-mono font-bold">
-                {i + 1}
-              </span>
-              <h3 className="text-lg font-bold">{step.t}</h3>
-              <p className="text-sm text-[var(--muted)]">{step.d}</p>
-            </Card>
-          ))}
-        </div>
-      </section>
+        <section className={cn("wrap mt-20 grid gap-6", hidden("how") && "opacity-40")}>
+          <div>
+            <span className="eyebrow">How it works</span>
+            <EditableText as="h2" editing={editing} value={pg.titles?.how} fallback="Four steps, all on-chain" maxLength={60} onChange={(v) => setTitle("how", v)} className="text-3xl sm:text-4xl font-extrabold mt-1" />
+          </div>
+          <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 list-none m-0 p-0">
+            {[
+              { t: "Pick a spot", d: "Every spot is its own auction. Bid, or buy it outright at the buy-now price." },
+              { t: "Bid in USDC", d: "One signature. If someone outbids you, your USDC comes straight back." },
+              { t: "Money waits in escrow", d: "Nothing goes to the creator until they post proof. You can dispute within 72 hours." },
+              {
+                t: deal?.idea ? "Get seen at the event" : listing.surface === "car" ? (deal?.place === "parked" ? "Get parked at the venue" : "Get driven around the venue") : "Get worn at the event",
+                d: "Your logo gets printed, shown and photographed. You keep a receipt NFT for your spot.",
+              },
+            ].map((step, i) => (
+              <li key={step.t} className="grid gap-2 content-start border-t-[1.5px] border-[var(--ink)] pt-4">
+                <span className="font-mono text-sm text-[var(--accent-text)] font-bold">{String(i + 1).padStart(2, "0")}</span>
+                <h3 className="text-lg font-bold">{step.t}</h3>
+                <p className="text-sm text-[var(--muted)]">{step.d}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
 
-      {/* ── Creator story + activity ── */}
-      {(shown("story") || shown("activity")) && (
-      <section id="activity" className={cn("wrap mt-16 grid gap-6 items-start scroll-mt-32", shown("story") && shown("activity") && "lg:grid-cols-[1.2fr_.8fr]")}>
-        {shown("story") && (
-        <Card className={cn("p-6 grid gap-3", hidden("story") && "opacity-40")}>
-          <span className="eyebrow">About {creatorLabel}</span>
-          <EditableText as="h2" editing={editing} value={pg.titles?.story} fallback="Why I'm doing this" maxLength={60} onChange={(v) => setTitle("story", v)} className="text-3xl font-extrabold" />
-          <EditableText
-            editing={editing}
-            multiline
-            value={pg.story}
-            fallback={
-              meta?.story ??
-              listing.creatorBio ??
-              `I'm putting ${patches.length} logo spots on my ${surfaceWord}${listing.eventName ? ` for ${listing.eventName}` : ""}. Every spot you take helps cover the costs, and your brand gets seen in person and in every photo.`
-            }
-            maxLength={1200}
-            onChange={(v) => setPg({ story: v })}
-            className="leading-relaxed"
-          />
-          {listing.creatorHandle && (
-            <Link href={`/${listing.creatorHandle}`} className="btn-base btn-small justify-self-start">See {creatorLabel}&apos;s page</Link>
-          )}
-        </Card>
-        )}
-        {shown("activity") && (
-        <Card className={cn(hidden("activity") && "opacity-40")}>
-          <div className="flex justify-between items-center px-4 pt-3.5 pb-1">
-            <h3 className="text-lg font-bold">Live activity</h3>
-            <span className="dot live" />
+      {/* ── Creator story ── */}
+      {shown("story") && (
+        <section className={cn("wrap mt-20", hidden("story") && "opacity-40")}>
+          <div className="grid gap-4 max-w-3xl">
+            <span className="eyebrow">About {creatorLabel}</span>
+            <EditableText as="h2" editing={editing} value={pg.titles?.story} fallback="Why I'm doing this" maxLength={60} onChange={(v) => setTitle("story", v)} className="text-3xl sm:text-4xl font-extrabold" />
+            <EditableText
+              editing={editing}
+              multiline
+              value={pg.story}
+              fallback={
+                meta?.story ??
+                listing.creatorBio ??
+                `I'm putting ${patches.length} logo spots on my ${surfaceWord}${listing.eventName ? ` for ${listing.eventName}` : ""}. Every spot you take helps cover the costs, and your brand gets seen in person and in every photo.`
+              }
+              maxLength={1200}
+              onChange={(v) => setPg({ story: v })}
+              className="text-lg leading-relaxed"
+            />
+            {listing.creatorHandle && (
+              <Link href={`/${listing.creatorHandle}`} className="justify-self-start inline-flex items-center gap-2 text-sm font-semibold no-underline text-[var(--ink)] hover:text-[var(--accent-text)]">
+                <Avatar creatorAvatar={listing.creatorAvatar} label={creatorLabel} /> See {creatorLabel}&apos;s page <ArrowRight size={14} />
+              </Link>
+            )}
           </div>
-          <ul className="feed">
-            {bids.slice(0, 10).map((b) => {
-              const label = patches.find((p) => p.id === b.patchId)?.label ?? `Patch ${b.patchId}`;
-              return (
-                <li key={b.id}>
-                  <span><b>{bidderName(b.bidder)}</b> bid on {label}</span>
-                  <span className="font-mono">{usd(b.amount)} · {ago(b.time)}</span>
-                </li>
-              );
-            })}
-            {bids.length === 0 && <li><span className="muted">No bids yet. The first bid shows up here instantly.</span></li>}
-          </ul>
-        </Card>
-        )}
-      </section>
+        </section>
       )}
 
       {/* ── FAQ ── */}
       {shown("faq") && (
-      <section id="faq" className={cn("wrap mt-16 scroll-mt-32", hidden("faq") && "opacity-40")}>
-        <div className="grid gap-3 max-w-3xl">
-        <span className="eyebrow">Questions</span>
-        <EditableText as="h2" editing={editing} value={pg.titles?.faq} fallback="Before you bid" maxLength={60} onChange={(v) => setTitle("faq", v)} className="text-3xl font-extrabold" />
-        {editing && (
-          <div className="grid gap-2">
-            {(draft.faq ?? meta?.faq ?? []).map((f, i) => (
-              <div key={i} className="card-surface p-3 grid gap-2">
-                <input className="font-bold bg-transparent outline-2 outline-dashed outline-[var(--accent)]/70 rounded-lg" value={f.q} placeholder="Question" maxLength={120}
-                  onChange={(e) => setDraft((d) => ({ ...d, faq: (d.faq ?? meta?.faq ?? []).map((x, j) => (j === i ? { ...x, q: e.target.value } : x)) }))} />
-                <textarea className="text-sm bg-transparent outline-2 outline-dashed outline-[var(--accent)]/70 rounded-lg resize-y" rows={2} value={f.a} placeholder="Answer" maxLength={500}
-                  onChange={(e) => setDraft((d) => ({ ...d, faq: (d.faq ?? meta?.faq ?? []).map((x, j) => (j === i ? { ...x, a: e.target.value } : x)) }))} />
-                <button className="text-xs text-[var(--muted)] justify-self-start hover:text-[var(--ink)]"
-                  onClick={() => setDraft((d) => ({ ...d, faq: (d.faq ?? meta?.faq ?? []).filter((_, j) => j !== i) }))}>Remove</button>
+        <section id="faq" className={cn("wrap mt-20 scroll-mt-20", hidden("faq") && "opacity-40")}>
+          <div className="grid gap-3 max-w-3xl">
+            <span className="eyebrow">Questions</span>
+            <EditableText as="h2" editing={editing} value={pg.titles?.faq} fallback="Before you bid" maxLength={60} onChange={(v) => setTitle("faq", v)} className="text-3xl sm:text-4xl font-extrabold" />
+            {editing && (
+              <div className="grid gap-2">
+                {(draft.faq ?? meta?.faq ?? []).map((f, i) => (
+                  <div key={i} className="rounded-2xl border-[1.5px] border-[var(--soft)] p-3 grid gap-2">
+                    <input className="font-bold bg-transparent outline-2 outline-dashed outline-[var(--accent)]/70 rounded-lg" value={f.q} placeholder="Question" maxLength={120} aria-label={`Question ${i + 1}`}
+                      onChange={(e) => setDraft((d) => ({ ...d, faq: (d.faq ?? meta?.faq ?? []).map((x, j) => (j === i ? { ...x, q: e.target.value } : x)) }))} />
+                    <textarea className="text-sm bg-transparent outline-2 outline-dashed outline-[var(--accent)]/70 rounded-lg resize-y" rows={2} value={f.a} placeholder="Answer" maxLength={500} aria-label={`Answer ${i + 1}`}
+                      onChange={(e) => setDraft((d) => ({ ...d, faq: (d.faq ?? meta?.faq ?? []).map((x, j) => (j === i ? { ...x, a: e.target.value } : x)) }))} />
+                    <button className="text-xs text-[var(--muted)] justify-self-start hover:text-[var(--ink)]"
+                      onClick={() => setDraft((d) => ({ ...d, faq: (d.faq ?? meta?.faq ?? []).filter((_, j) => j !== i) }))}>Remove</button>
+                  </div>
+                ))}
+                {(draft.faq ?? meta?.faq ?? []).length < 8 && (
+                  <button className="btn-base btn-small justify-self-start" onClick={() => setDraft((d) => ({ ...d, faq: [...(d.faq ?? meta?.faq ?? []), { q: "", a: "" }] }))}>
+                    Add your own question
+                  </button>
+                )}
+                <p className="text-xs text-[var(--muted)]">Your questions show first. The standard ones below are always included.</p>
               </div>
-            ))}
-            {(draft.faq ?? meta?.faq ?? []).length < 8 && (
-              <button className="btn-base btn-small justify-self-start" onClick={() => setDraft((d) => ({ ...d, faq: [...(d.faq ?? meta?.faq ?? []), { q: "", a: "" }] }))}>
-                Add your own question
-              </button>
             )}
-            <p className="text-xs text-[var(--muted)]">Your questions show first. The standard ones below are always included.</p>
+            <div className="border-t-[1.5px] border-[var(--soft)]">
+              {(editing ? faq.slice(creatorFaq.length) : faq).map((f) => (
+                <details key={f.q} className="group border-b-[1.5px] border-[var(--soft)] py-4">
+                  <summary className="font-bold cursor-pointer list-none flex justify-between gap-3">
+                    {f.q}
+                    <Plus size={18} className="text-[var(--muted)] flex-none transition-transform group-open:rotate-45" />
+                  </summary>
+                  <p className="text-[var(--muted)] mt-2 leading-relaxed">{f.a}</p>
+                </details>
+              ))}
+            </div>
           </div>
-        )}
-        {(editing ? faq.slice(creatorFaq.length) : faq).map((f) => (
-          <details key={f.q} className="card-surface p-4 group">
-            <summary className="font-bold cursor-pointer list-none flex justify-between gap-3">
-              {f.q}
-              <span className="text-[var(--muted)] transition-transform group-open:rotate-45">+</span>
-            </summary>
-            <p className="text-sm text-[var(--muted)] mt-2 leading-relaxed">{f.a}</p>
-          </details>
-        ))}
-        </div>
-      </section>
+        </section>
       )}
 
       {/* ── Edit toolbar ── */}
@@ -841,82 +884,66 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
         />
       )}
 
-      <Sheet open={sheetOpen} onClose={() => !busy && setSheetOpen(false)} title={selected.label} description={
-        selected.topBid > 0n ? `Top bid ${usd(selected.topBid)} · next bid at least ${usd(minNext(selected))}` : `No bids yet · floor ${usd(selected.floor)}`
-      }>
-        <div className="flex flex-col gap-4">
-          {!isCreator && (
-            <>
-              <label className="field-label" htmlFor="bid-amount">Your bid</label>
-              <div className="amt">
-                <span>$</span>
-                <input id="bid-amount" inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} disabled={busy} />
-                <span>USDC</span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {[1, 5, 10].map((n) => (
-                  <Button key={n} size="small" disabled={busy} onClick={() => setAmountText((v) => String((parseFloat(v) || 0) + n))}>+{n}</Button>
-                ))}
-                <Button size="small" variant="ghost" disabled={busy} onClick={() => setAmountText(String(Number(selected.buyNow) / 1e6))}>
-                  Buy now {usd(selected.buyNow)}
-                </Button>
-              </div>
-              <div className="perks">
-                <div><span className="pi"><Fuel size={12} /></span>{GAS_SPONSORED ? "No gas needed. Patched pays the network fee." : "You pay a tiny network fee in MON."}</div>
-                <div><span className="pi"><ShieldCheck size={12} /></span>Your USDC goes into escrow, not to the creator.</div>
-                <div><span className="pi"><RotateCcw size={12} /></span>Outbid? Your USDC comes back instantly.</div>
-              </div>
-            </>
-          )}
-          {error && <p className="text-sm text-[var(--red)]" role="alert">{error}</p>}
-          {isCreator ? (
-            <p className="rounded-xl bg-[var(--soft)] p-3 text-sm">
-              This is your listing, so you can&apos;t bid on it. Share it so brands see it:{" "}
-              <Link href={`/share/${listing.id}`} className="font-semibold underline">open the share kit</Link>.
-            </p>
-          ) : !authenticated ? (
-            <Button variant="primary" onClick={login}>Sign in to bid</Button>
-          ) : (
-            <Button variant="primary" onClick={placeBid} disabled={busy}>
-              {txStatus === "signing" ? "Approving USDC…" : txStatus === "confirming" ? "Placing bid…" : "Place bid"}
-            </Button>
-          )}
-          {hash && (
-            <a className="text-xs muted inline-flex items-center gap-1" href={`${EXPLORER}/tx/${hash}`} target="_blank" rel="noopener noreferrer">
-              View transaction <ExternalLink size={12} />
-            </a>
-          )}
-          {authenticated && !isCreator && !selected.bought && biddingOpen && (
-            <AutoBidPanel
-              listingId={listing.id}
-              patchId={selected.id}
-              label={selected.label}
-              minNext={minNext(selected)}
-              buyNow={selected.buyNow}
-              disabled={busy}
-            />
-          )}
-        </div>
-      </Sheet>
-
-      {/* ── Phones: the bid button is always one tap away ── */}
+      {/* ── Phones: the selected spot and its bid button, always one tap away ── */}
       {biddingOpen && !isCreator && (
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t-2 border-[var(--line)] bg-[var(--card)] px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] flex items-center gap-3">
-          <button className="min-w-0 flex-1 text-left" onClick={() => jumpTo("spots")} aria-label="Pick another spot">
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t-[1.5px] border-[var(--soft)] bg-[var(--card)]/95 backdrop-blur-md px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] flex items-center gap-3">
+          <button className="min-w-0 flex-1 text-left" onClick={() => focusSpot(selected.id)} aria-label={`Open ${selected.label}`}>
             <span className="block font-mono text-[11px] text-[var(--muted)]">
               Spot {String(selected.id + 1).padStart(2, "0")}{mounted ? ` · ends in ${countdown.text}` : ""}
             </span>
-            <b className="block truncate">{selected.label}</b>
+            <b className="block truncate">{selected.label} · {usd(selected.topBid > 0n ? selected.topBid : selected.floor)}</b>
           </button>
           {selected.bought ? (
             <Pill variant="won">Bought</Pill>
           ) : me && selected.topBidder === me ? (
             <Pill variant="top">You lead</Pill>
           ) : (
-            <Button variant="primary" onClick={() => openSheet(selected.id)}>Bid {usd(minNext(selected))}</Button>
+            <Button variant="primary" onClick={() => focusSpot(selected.id)}>Bid {usd(minNext(selected))}</Button>
           )}
         </div>
       )}
     </main>
+  );
+}
+
+/** Who leads a spot: their logo (or initial) and name, or that it's still open. */
+function Leader({ p, me }: { p: LivePatch; me?: string }) {
+  if (!p.topBidder) return <span className="text-[var(--muted)]">No bids yet</span>;
+  return (
+    <>
+      <BrandMark p={p} size={22} />
+      <span className="truncate font-semibold">{p.topBidder === me ? "You" : p.brandName ?? formatShortAddress(p.topBidder)}</span>
+      {p.brandVerified && <BadgeCheck size={14} className="text-[var(--green)] flex-none" aria-label={`Verified brand · ${p.brandVerified}`} />}
+    </>
+  );
+}
+
+function BrandMark({ p, size }: { p: LivePatch; size: number }) {
+  return p.logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={p.logoUrl} alt="" width={size} height={size} className="object-contain rounded-md flex-none" style={{ width: size, height: size }} />
+  ) : (
+    <WalletAvatar name={p.brandName} wallet={p.topBidder} size={size} className="!border" />
+  );
+}
+
+function Avatar({ creatorAvatar, label }: { creatorAvatar: string | null | undefined; label: string }) {
+  return (
+    <span className="w-8 h-8 rounded-full overflow-hidden grid place-items-center font-extrabold bg-[var(--p5)] text-[#0B0B0C] flex-none text-sm">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {creatorAvatar ? <img src={creatorAvatar} alt="" className="w-full h-full object-cover" /> : label.replace("@", "").slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
+function Fact({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3.5 py-3.5 border-b-[1.5px] border-[var(--soft)] first:pt-0 last:border-b-0">
+      <span className="w-9 h-9 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-text)] grid place-items-center flex-none">{icon}</span>
+      <span className="grid gap-0.5">
+        <dt className="font-bold">{title}</dt>
+        <dd className="m-0 text-sm text-[var(--muted)]">{children}</dd>
+      </span>
+    </div>
   );
 }

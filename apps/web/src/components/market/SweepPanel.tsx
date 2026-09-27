@@ -81,7 +81,7 @@ export function SweepPanel({ listingId, patches, minNext, me }: Props) {
   }
 
   return (
-    <Card className="p-4 grid gap-3">
+    <Card className="!border-[1.5px] !border-[var(--soft)] !shadow-none !rounded-3xl p-4 px-5 grid gap-3">
       <button
         type="button"
         onClick={() => setExpanded((x) => !x)}

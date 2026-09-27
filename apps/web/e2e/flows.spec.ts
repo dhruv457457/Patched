@@ -147,11 +147,11 @@ test.describe("signed-out flows", () => {
     await expect(mark).toBeVisible();
     // No app chrome on the creator's page.
     await expect(page.getByRole("complementary", { name: "Main" })).toHaveCount(0);
-    if (isPhone()) {
-      const jump = page.getByRole("navigation", { name: "On this page" });
-      await jump.getByRole("button", { name: "Spots" }).click();
-      await expect(page.locator("#spots")).toBeInViewport();
-    }
+    // The spot board: a row opens its bid panel with that spot's bid history.
+    const row = page.locator("#spots [aria-expanded]").first();
+    await row.click();
+    await expect(row).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText("Bids on this spot")).toBeVisible();
     await mark.click();
     await expect(page).toHaveURL(/\/$/);
     expect(errors).toEqual([]);

@@ -154,4 +154,10 @@ contracts/broadcast/*/31337/
 .next-claude/
 .next-mainnet/
 .next-audit/
+.next-debug/
 .next-verify/
+
+# Playwright UI test output
+apps/web/e2e/results/
+apps/web/e2e/report/
+apps/web/e2e/screens/

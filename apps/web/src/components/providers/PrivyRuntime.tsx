@@ -73,6 +73,7 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
       isEmbeddedWallet: Boolean(embedded),
       hasGasSponsorship: Boolean(embedded),
       login,
+      openPrivyLogin: login,
       loginWithX: () => initOAuth({ provider: "twitter" }),
       sendEmailCode: (email: string) => sendCode({ email }),
       loginWithEmailCode: (code: string) => loginWithCode({ code }),

@@ -1,5 +1,7 @@
 "use client";
 
+import { ShieldHalf } from "lucide-react";
+import { SignInPrompt } from "@/components/ui/SignInPrompt";
 import PageLoading from "@/app/loading";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -41,7 +43,7 @@ const ADMIN_ROLE = keccak256(toBytes("ADMIN_ROLE"));
 export function AdminConsole({ pending: wire, review, events }: { pending: Wire<ListingCard[]>; review: AdminReviewItem[]; events: AdminEvent[] }) {
   const pending = useMemo(() => fromWire<ListingCard[]>(wire), [wire]);
   const router = useRouter();
-  const { walletAddress, authenticated, login, ready } = usePatchedAuth();
+  const { walletAddress, authenticated, ready } = usePatchedAuth();
   const send = useTx();
   useIndexerSync();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -74,11 +76,7 @@ export function AdminConsole({ pending: wire, review, events }: { pending: Wire<
   if (!ready) return <PageLoading />;
   if (!authenticated) {
     return (
-      <main className="wrap pt-10 pb-24"><Card className="p-8 text-center grid gap-3 justify-items-center">
-        <h1 className="text-3xl font-extrabold">Admin console</h1>
-        <p className="muted">Sign in with an admin wallet to review listings.</p>
-        <Button variant="primary" onClick={login}>Sign in</Button>
-      </Card></main>
+      <SignInPrompt icon={ShieldHalf} title="Admin console" text="Sign in with an admin wallet to review listings, proofs and events." />
     );
   }
   if (isAdmin === false) {

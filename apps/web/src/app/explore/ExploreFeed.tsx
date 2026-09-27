@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar as UserAvatar } from "@/components/ui/Avatar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -242,7 +243,7 @@ export function ExploreFeed({ cards: wire, stats, activity }: { cards: Wire<List
           {([
             ["all", "All", Sparkles],
             ["outfit", "Outfits", Shirt],
-            ["car", "Cars", Car],
+            ["car", "Vehicles", Car],
             ["hoodie", "Team hoodies", Users],
           ] as const).map(([v, label, Icon]) => (
             <Chip key={v} on={surface === v} onClick={() => setSurface(v)}><Icon size={13} /> {label}</Chip>
@@ -284,20 +285,9 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   );
 }
 
+/** The creator's picture, or the shared wallet-gradient avatar (no "0" letter for wallet-only names). */
 function Avatar({ card, size }: { card: ListingCard; size: number }) {
-  return (
-    <span
-      className="rounded-xl border-2 border-[var(--line)] overflow-hidden bg-[var(--p5)] grid place-items-center font-extrabold text-[#0B0B0C] flex-none"
-      style={{ width: size, height: size, fontSize: size * 0.42 }}
-    >
-      {card.creatorAvatar ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={card.creatorAvatar} alt="" className="w-full h-full object-cover" />
-      ) : (
-        card.creatorLabel.replace("@", "").slice(0, 1).toUpperCase()
-      )}
-    </span>
-  );
+  return <UserAvatar src={card.creatorAvatar} name={card.creatorLabel} wallet={card.creator} size={size} className="!rounded-xl !border-2" />;
 }
 
 /** The cutout with its numbered spots, fitted inside a fixed box (height-driven for people, width-driven for cars). */

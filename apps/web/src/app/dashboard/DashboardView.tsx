@@ -1,14 +1,14 @@
 "use client";
 
+import { SignInPrompt } from "@/components/ui/SignInPrompt";
 import { SHAREABLE } from "@/lib/market/listingStatus";
 import PageLoading from "@/app/loading";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { erc20Abi } from "viem";
-import { AlertCircle, Check, Copy, ExternalLink, Plus, Share2, Settings2, Wallet } from "lucide-react";
+import { AlertCircle, Check, Copy, ExternalLink, LayoutDashboard, Plus, Settings2, Share2, Wallet } from "lucide-react";
 import { patchedMarketAbi, type ListingMetadata } from "@patched/shared";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { Pill } from "@/components/ui/Pill";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useProfile } from "@/lib/profile";
@@ -52,7 +52,7 @@ const PAYOUT_LABEL: Record<string, string> = { milestone: "Milestone payout", di
  */
 export function DashboardView({ embedded = false }: { embedded?: boolean }) {
   const Wrap = embedded ? "div" : "main";
-  const { ready, authenticated, login, walletAddress } = usePatchedAuth();
+  const { ready, authenticated, walletAddress } = usePatchedAuth();
   const { profile } = useProfile();
   const wallet = walletAddress?.toLowerCase();
   const [loading, setLoading] = useState(true);
@@ -100,11 +100,7 @@ export function DashboardView({ embedded = false }: { embedded?: boolean }) {
   if (!ready) return <PageLoading />;
   if (!authenticated || !wallet) {
     return (
-      <main className="wrap py-16 grid place-items-center text-center gap-4">
-        <h1 className="text-4xl font-extrabold">Your dashboard</h1>
-        <p className="muted max-w-md">Sign in to see your listings, earnings, payouts and share links.</p>
-        <Button variant="primary" onClick={login}>Sign in</Button>
-      </main>
+      <SignInPrompt icon={LayoutDashboard} title="Your earnings" text="Sign in to see your listings, earnings, payouts and share links." />
     );
   }
 

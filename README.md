@@ -161,6 +161,21 @@ brandboard/
 └─ supabase/          Database migrations
 ```
 
+## Testing the UI
+
+`pnpm --filter web test:ui` runs Playwright against the dev server (start it first with `pnpm web:dev`), in the
+Chrome installed on the machine, on a laptop size and a phone size:
+
+- **Every page** ([pages.spec.ts](apps/web/e2e/pages.spec.ts)): it loads, nothing scrolls sideways, no broken
+  images, every button and link has a name, and nothing crashes or logs an error. Every internal link on the main
+  pages opens. Each page is also saved as a screenshot in `apps/web/e2e/screens/` for a visual review.
+- **What people click** ([flows.spec.ts](apps/web/e2e/flows.spec.ts)): sign-in, the app's navigation, the Studio
+  deal, the campaign builder and its Privy policy, a listing, an event, Explore search and profile tabs.
+- **Signed in** ([signed-in.spec.ts](apps/web/e2e/signed-in.spec.ts)): runs when `E2E_TEST_EMAIL` and
+  `E2E_TEST_CODE` hold a Privy test account.
+
+The report is in `apps/web/e2e/report/` (`npx playwright show-report e2e/report` from `apps/web`).
+
 ## Setup
 
 ```bash

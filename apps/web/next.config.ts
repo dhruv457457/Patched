@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@patched/shared", "@patched/indexer", "@patched/ai"],
   serverExternalPackages: ["postgres"],
   reactStrictMode: true,
+  // The dev-tools badge sits on top of the phone tab bar's Home tab. Error overlays still appear without it.
+  devIndicators: false,
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   // Inline the public values into the browser bundle.
   env: Object.fromEntries(

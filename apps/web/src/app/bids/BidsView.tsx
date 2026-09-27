@@ -1,9 +1,10 @@
 "use client";
 
+import { SignInPrompt } from "@/components/ui/SignInPrompt";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { encodeFunctionData, erc20Abi } from "viem";
-import { BadgeCheck, Copy, Droplet, ExternalLink, Settings, Tag } from "lucide-react";
+import { BadgeCheck, Copy, Droplet, ExternalLink, Gavel, Settings, Tag } from "lucide-react";
 import { patchedMarketAbi, patchReceiptAbi, testUsdAbi } from "@patched/shared";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -59,7 +60,7 @@ interface ReceiptRow {
 
 export function BidsView({ embedded = false }: { embedded?: boolean }) {
   const Wrap = embedded ? "div" : "main";
-  const { ready, authenticated, login, walletAddress } = usePatchedAuth();
+  const { ready, authenticated, walletAddress } = usePatchedAuth();
   const { profile } = useProfile();
   const send = useTx();
   const me = walletAddress?.toLowerCase();
@@ -193,11 +194,7 @@ export function BidsView({ embedded = false }: { embedded?: boolean }) {
   if (!ready) return <BidsSkeleton />;
   if (!authenticated) {
     return (
-      <main className="wrap pt-10 pb-24"><Card className="p-8 text-center grid gap-3 justify-items-center">
-        <h1 className="text-3xl font-extrabold">My bids</h1>
-        <p className="muted">Sign in to see your bids, the patches you won and their receipts.</p>
-        <Button variant="primary" onClick={login}>Sign in</Button>
-      </Card></main>
+      <SignInPrompt icon={Gavel} title="My bids" text="Sign in to see your bids, the spots you won and their receipts." />
     );
   }
 

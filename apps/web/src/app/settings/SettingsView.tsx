@@ -1,10 +1,11 @@
 "use client";
 
+import { SignInPrompt } from "@/components/ui/SignInPrompt";
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { encodeFunctionData, stringToHex } from "viem";
-import { Check, Copy, ExternalLink, Fingerprint, KeyRound, LogOut, Upload } from "lucide-react";
+import { Check, Copy, ExternalLink, Fingerprint, KeyRound, LogOut, Settings, Upload } from "lucide-react";
 import { patchedMarketAbi } from "@patched/shared";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -34,7 +35,7 @@ const COLORS = ["#FF5A1F", "#836EF9", "#16A34A", "#F5B400", "#FF6FA4", "#2F9BFF"
 
 /** Everything you configure, in one place: your public page, your brand, security and the network. */
 export function SettingsView() {
-  const { ready, authenticated, login } = usePatchedAuth();
+  const { ready, authenticated } = usePatchedAuth();
   const params = useSearchParams();
   const router = useRouter();
   const tab = (TABS.some((t) => t.value === params.get("tab")) ? params.get("tab") : "profile") as Tab;
@@ -42,11 +43,7 @@ export function SettingsView() {
   if (!ready) return <PageLoading />;
   if (!authenticated) {
     return (
-      <main className="wrap pt-10 pb-24"><Card className="p-8 text-center grid gap-3 justify-items-center">
-        <h1 className="text-3xl font-extrabold">Settings</h1>
-        <p className="muted">Sign in to edit your page, your brand and your security settings.</p>
-        <Button variant="primary" onClick={login}>Sign in</Button>
-      </Card></main>
+      <SignInPrompt icon={Settings} title="Settings" text="Sign in to edit your page, your brand and your security settings." />
     );
   }
 

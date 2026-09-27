@@ -1,10 +1,10 @@
 "use client";
 
+import { SignInPrompt } from "@/components/ui/SignInPrompt";
 import { useEffect } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { formatTimeAgo } from "@/lib/format";
@@ -14,7 +14,7 @@ import PageLoading from "@/app/loading";
 
 /** Every notification for the signed-in wallet, newest first. Opening the page marks them read. */
 export default function NotificationsPage() {
-  const { ready, authenticated, login } = usePatchedAuth();
+  const { ready, authenticated } = usePatchedAuth();
   const { rows, labels, loaded, markAllRead } = useNotifications(100);
 
   // Mark read once they've been shown.
@@ -26,11 +26,7 @@ export default function NotificationsPage() {
   if (!ready) return <PageLoading />;
   if (!authenticated) {
     return (
-      <main className="wrap pt-10 pb-24"><Card className="p-8 text-center grid gap-3 justify-items-center">
-        <h1 className="text-3xl font-extrabold">Notifications</h1>
-        <p className="muted">Sign in to see your bids, wins and payouts as they happen.</p>
-        <Button variant="primary" onClick={login}>Sign in</Button>
-      </Card></main>
+      <SignInPrompt icon={Bell} title="Activity" text="Sign in to see your bids, wins and payouts as they happen." />
     );
   }
 

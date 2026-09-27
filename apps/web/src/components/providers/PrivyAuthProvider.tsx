@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, memo, useContext, useState } from "react";
+import React, { createContext, memo, useCallback, useContext, useMemo, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { ConnectedWallet, useExportWallet, useSendTransaction, useSignTypedData } from "@privy-io/react-auth";
 
@@ -18,7 +19,10 @@ export interface AuthContextValue {
   xHandle?: string;
   isEmbeddedWallet: boolean;
   hasGasSponsorship: boolean;
+  /** Go to the welcome page to sign in, then come back here. */
   login: () => void;
+  /** Privy's own sign-in window. Only for wallets the welcome page can't reach directly (phone wallets). */
+  openPrivyLogin: () => void;
   /** Our own sign-in UI (the welcome page): X redirects out and back; email is a 6-digit code. */
   loginWithX: () => Promise<void>;
   sendEmailCode: (email: string) => Promise<void>;
@@ -56,7 +60,8 @@ const NOT_READY: AuthContextValue = {
   user: null,
   isEmbeddedWallet: false,
   hasGasSponsorship: false,
-  login: () => {
+  login: () => {},
+  openPrivyLogin: () => {
     pendingLogin = true;
   },
   loginWithX: notReady,
@@ -77,8 +82,19 @@ const NOT_READY: AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue>(NOT_READY);
 
+const noSubscribe = () => () => {};
+
+/**
+ * Auth for a component. While that component is hydrating it always sees "not ready", exactly like the server did:
+ * Privy can finish loading before a streamed part of the page hydrates, and a signed-in or signed-out view drawn
+ * then would not match the server's HTML. Right after hydration it sees the real value.
+ */
 export function usePatchedAuth(): AuthContextValue {
-  return useContext(AuthContext);
+  const value = useContext(AuthContext);
+  const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const login = value.login;
+  const loading = useMemo(() => ({ ...NOT_READY, login }), [login]);
+  return hydrated ? value : loading;
 }
 
 // Loaded in the browser after hydration. memo: re-rendering this provider must not re-render Privy.
@@ -86,8 +102,17 @@ const PrivyRuntime = memo(dynamic(() => import("./PrivyRuntime"), { ssr: false }
 
 export function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
   const [value, setValue] = useState<AuthContextValue>(NOT_READY);
+  const router = useRouter();
+  // "Sign in" anywhere goes to our welcome page (no pop-up) and comes back to the same place afterwards.
+  const login = useCallback(() => {
+    const here = `${window.location.pathname}${window.location.search}`;
+    if (window.location.pathname.startsWith("/welcome")) return;
+    router.push(`/welcome?next=${encodeURIComponent(here)}`);
+  }, [router]);
+  const withLogin = useMemo(() => ({ ...value, login }), [value, login]);
+
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={withLogin}>
       {children}
       <PrivyRuntime onChange={setValue} />
     </AuthContext.Provider>

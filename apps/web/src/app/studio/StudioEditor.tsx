@@ -112,7 +112,9 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
   const [side, setSide] = useState<Side>("front");
   const [busy, setBusy] = useState<null | string>(null);
 
-  const [patches, setPatches] = useState<DraftPatch[]>(() => DEFAULT_LAYOUTS.outfit.slice(0, 3).map((s) => draft("front", s)));
+  // The first spots get fixed ids (1, 2, 3) so the server and the browser render the same thing; the shared
+  // counter only numbers spots added later, in the browser.
+  const [patches, setPatches] = useState<DraftPatch[]>(() => DEFAULT_LAYOUTS.outfit.slice(0, 3).map((s, i) => ({ ...draft("front", s, i), id: i + 1 })));
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [headline, setHeadline] = useState("");
   const [story, setStory] = useState("");
@@ -555,11 +557,9 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
         <aside className="grid gap-3 lg:sticky lg:top-4">
           <span className="eyebrow">What brands see</span>
           <Card className="overflow-hidden !p-0">
-            <div className="bg-[var(--stage)] h-[220px] p-4 grid place-items-center">
-              <div className={surface === "car" ? "w-full" : "h-full"}>
-                <SurfaceFigure surface={surface} imageUrl={views[0]?.image ?? null} patches={previewPatches} mode="static" showPrices={false}
-                  className={surface === "car" ? "w-full" : "h-full !w-auto"} />
-              </div>
+            <div className="bg-[var(--stage)] h-[220px] p-4 flex items-center justify-center overflow-hidden">
+              <SurfaceFigure surface={surface} imageUrl={views[0]?.image ?? null} patches={previewPatches} mode="static" showPrices={false}
+                className={surface === "car" ? "w-full" : "h-full !w-auto max-w-full"} />
             </div>
             <div className="p-4 grid gap-3">
               <div>

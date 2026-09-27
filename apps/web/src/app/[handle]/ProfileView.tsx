@@ -93,7 +93,7 @@ export function ProfileView({ profile: p, cards: wire, sponsoring }: { profile: 
       </div>
       <div className="px-4 sm:px-6">
         <div className="flex items-end justify-between gap-3 -mt-12 sm:-mt-14">
-          <Avatar src={p.avatarUrl} name={named} wallet={p.wallet} size={112} className="!border-[3px] shadow-[3px_3px_0_var(--shadow)] ring-4 ring-[var(--paper)]" />
+          <Avatar src={p.avatarUrl} name={named} wallet={p.wallet} size={112} className="relative z-10 !border-[3px] shadow-[3px_3px_0_var(--shadow)] ring-4 ring-[var(--paper)]" />
           <div className="flex gap-2 pb-1 flex-wrap justify-end">
             {isOwner && <Link href="/settings" className="btn-base btn-small"><Pencil size={13} /> Edit profile</Link>}
             <button className="btn-base btn-small" onClick={() => navigator.clipboard.writeText(`${window.location.origin}${pageHref}`).then(() => toast("Profile link copied.")).catch(() => {})}>

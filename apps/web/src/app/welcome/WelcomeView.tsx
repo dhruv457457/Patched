@@ -66,11 +66,11 @@ export function WelcomeView() {
         <h1 className="font-display font-extrabold text-[clamp(44px,6vw,76px)] leading-[0.92] tracking-[-0.05em]">Get patched.<br />Get paid.</h1>
         <StoryPanel className="max-w-[600px] w-full" />
         <p className="flex items-center gap-2 text-sm">
-          <Lock size={15} /> Sign-in, wallets and one-tap bids powered by <b>Privy</b>
+          <Lock size={15} className="flex-none" /> <span>Sign-in, wallets and one-tap bids powered by <b>Privy</b></span>
         </p>
       </section>
 
-      <section className="grid place-items-center px-5 py-10 bg-[var(--paper)] min-w-0">
+      <section className="order-first lg:order-none grid place-items-center px-5 py-8 lg:py-10 bg-[var(--paper)] min-w-0">
         {!ready ? (
           <Loader2 className="animate-spin text-[var(--muted)]" aria-label="Loading" />
         ) : !authenticated ? (
@@ -87,7 +87,7 @@ export function WelcomeView() {
 
 /** Privy sign-in in Patched's design: X first, then an email code, then "I have a wallet" (Privy's own window). */
 function SignInCard() {
-  const { loginWithX, sendEmailCode, loginWithEmailCode, loginWithWallet, login } = usePatchedAuth();
+  const { loginWithX, sendEmailCode, loginWithEmailCode, loginWithWallet, openPrivyLogin } = usePatchedAuth();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
@@ -146,7 +146,7 @@ function SignInCard() {
           <label htmlFor="welcome-email" className="text-sm font-semibold">Email</label>
           <div className="flex gap-2">
             <input id="welcome-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@brand.com"
-              className="flex-1 min-w-0 h-11 px-3.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)]" />
+              className="w-0 flex-1 min-w-0 h-11 px-3.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)]" />
             <button type="submit" disabled={!!busy || !email.trim()} className="btn-base btn-primary h-11 !rounded-xl !px-3.5 flex-none">
               {busy === "send" ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />} Send code
             </button>
@@ -157,7 +157,7 @@ function SignInCard() {
           <label htmlFor="welcome-code" className="text-sm font-semibold">Code sent to {email}</label>
           <div className="flex gap-2">
             <input id="welcome-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" autoFocus
-              className="flex-1 min-w-0 h-11 px-3.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)] font-mono tracking-[0.3em]" />
+              className="w-0 flex-1 min-w-0 h-11 px-3.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)] font-mono tracking-[0.3em]" />
             <button type="submit" disabled={!!busy || code.length < 6} className="btn-base btn-primary h-11 !rounded-xl !px-3.5 flex-none">
               {busy === "code" ? <Loader2 size={15} className="animate-spin" /> : null} Sign in
             </button>
@@ -177,7 +177,7 @@ function SignInCard() {
       {noWallet && (
         <p className="text-sm text-center" role="status">
           No wallet in this browser. Sign in with X or email, or{" "}
-          <button onClick={login} className="font-semibold underline">connect a phone wallet</button>.
+          <button onClick={openPrivyLogin} className="font-semibold underline">connect a phone wallet</button>.
         </p>
       )}
       <p className="text-xs text-center text-[var(--muted)] leading-relaxed">

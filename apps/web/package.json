@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:ui": "playwright test",
     "dev": "next dev --turbopack",
     "build": "next build",
     "verify": "cross-env NEXT_DIST_DIR=.next-verify next build",
@@ -28,12 +29,13 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.4",
     "sonner": "^2.0.1",
     "tailwind-merge": "^3.0.1",
-    "viem": "^2.23.0",
-    "sharp": "^0.35.4"
+    "viem": "^2.23.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.10.0",
     "@types/qrcode": "^1.5.6",

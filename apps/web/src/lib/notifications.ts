@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { CHAIN_ID } from "@/lib/config";
 import { supabase } from "@/lib/supabase";
 import { formatUsdc } from "@/lib/format";
@@ -57,6 +57,10 @@ export function useNotifications(limit: number) {
   const [rows, setRows] = useState<NotificationRow[]>([]);
   const [labels, setLabels] = useState<Labels>({});
   const [loaded, setLoaded] = useState(false);
+  // Several components can use this at once (the sidebar and the phone tab bar). Supabase hands back the same
+  // channel for the same name, and a channel that's already subscribed can't take another listener, so each
+  // caller gets its own channel.
+  const instance = useId();
 
   const load = useCallback(async () => {
     if (!wallet) return;
@@ -90,13 +94,13 @@ export function useNotifications(limit: number) {
     if (!wallet) return;
     void load();
     const channel = supabase()
-      .channel(`notifications:${CHAIN_ID}:${wallet}:${limit}`)
+      .channel(`notifications:${CHAIN_ID}:${wallet}:${limit}:${instance}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `wallet=eq.${wallet}` }, () => void load())
       .subscribe();
     return () => {
       void supabase().removeChannel(channel);
     };
-  }, [wallet, load, limit]);
+  }, [wallet, load, limit, instance]);
 
   const unread = rows.filter((n) => !n.read_at).length;
   const markAllRead = useCallback(() => {

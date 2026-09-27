@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, ExternalLink, Flame, Globe, MapPin, Plus, Swords, Trophy, Users, Zap } from "lucide-react";
+import { CalendarDays, ExternalLink, Flame, Globe, MapPin, Megaphone, Plus, Swords, Trophy, Users, Zap } from "lucide-react";
 import { ListingCardView } from "@/components/market/ListingCardView";
 import { Avatar } from "@/components/ui/Avatar";
 import { formatCountdown, formatTimeAgo, formatUsdc } from "@/lib/format";
@@ -91,6 +91,7 @@ export function EventView({ event, cards: wire, leaderboards, wall }: { event: E
           <div className="flex gap-2 flex-wrap">
             {event.website && <a href={event.website} target="_blank" rel="noopener noreferrer" className="btn-base btn-small"><Globe size={14} /> Website <ExternalLink size={12} /></a>}
             {event.x && <a href={event.x} target="_blank" rel="noopener noreferrer" className="btn-base btn-small"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={X_PATH} /></svg> On X</a>}
+            {event.active && !past && <Link href={`/campaigns/new?event=${event.id}`} className="btn-base btn-small"><Megaphone size={14} /> Sponsor everyone here</Link>}
             {event.active && !past && <Link href="/studio" className="btn-base btn-small btn-primary"><Plus size={14} /> Get patched here</Link>}
           </div>
         </div>

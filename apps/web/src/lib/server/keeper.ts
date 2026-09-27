@@ -6,6 +6,7 @@ import { patchAutoBidderAbi, patchedMarketAbi } from "@patched/shared";
 import { syncChain } from "@patched/indexer";
 import { AUTO_BIDDER, CHAIN_ID, MARKET, USDC, serverClient, serverRpcUrl } from "@/lib/config";
 import { supabaseAdmin } from "@/lib/supabase";
+import { runCampaigns } from "./campaigns";
 
 export interface KeeperAction {
   kind: "closeBidding" | "release" | "markFailed" | "autoBid";
@@ -63,6 +64,8 @@ export async function runKeeper(): Promise<KeeperAction[]> {
   for (const job of jobs) results.push(await execute(job));
   if (results.some((r) => r.status === "sent")) await syncChain({ sql, chainId: CHAIN_ID, rpcUrl: serverRpcUrl(), maxBlocks: 5_000n });
   results.push(...(await respondAutoBids()));
+  // Brand campaigns: fund, bid within their Privy policy, return what's left at the end.
+  await runCampaigns().catch((err) => console.error("campaigns failed", err));
   return results;
 }
 

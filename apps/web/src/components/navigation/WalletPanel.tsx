@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Copy, ExternalLink, Gavel, LayoutDashboard, LogOut, Moon, Settings, ShieldHalf, Sun } from "lucide-react";
+import { Check, Copy, ExternalLink, Gavel, LayoutDashboard, LogOut, Megaphone, Moon, Settings, ShieldHalf, Sun } from "lucide-react";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useBalances } from "@/lib/useBalances";
 import { useIsAdmin } from "@/lib/useIsAdmin";
@@ -62,6 +62,7 @@ export function WalletPanel({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="grid gap-0.5 border-t-[1.5px] border-[var(--soft)] pt-2">
         <Link href={`${me}?tab=bids`} onClick={go} className={ROW}><Gavel size={17} /> My bids</Link>
+        <Link href={`${me}?tab=campaigns`} onClick={go} className={ROW}><Megaphone size={17} /> Campaigns</Link>
         <Link href={`${me}?tab=earnings`} onClick={go} className={ROW}><LayoutDashboard size={17} /> Earnings</Link>
         <Link href="/settings" onClick={go} className={ROW}><Settings size={17} /> Settings</Link>
         {isAdmin && <Link href="/admin" onClick={go} className={ROW}><ShieldHalf size={17} /> Admin</Link>}

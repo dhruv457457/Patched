@@ -1,0 +1,57 @@
+import "server-only";
+import { createPrivateKey, createPublicKey } from "node:crypto";
+import { PrivyClient } from "@privy-io/node";
+
+let client: PrivyClient | null = null;
+
+/** The server-side Privy client (app secret), shared by the keeper and campaigns. */
+export function privyServer(): PrivyClient {
+  client ??= new PrivyClient({ appId: process.env.NEXT_PUBLIC_PRIVY_APP_ID!, appSecret: process.env.PRIVY_APP_SECRET! });
+  return client;
+}
+
+/**
+ * Wallets and policies we create are owned by our authorization key, so every send and every policy change has to
+ * be signed with it. This is the context to pass along (unless the keeper wallet is app-controlled).
+ */
+export function authContext() {
+  return { authorization_private_keys: [process.env.PRIVY_AUTHORIZATION_PRIVATE_KEY!] };
+}
+
+/** The owner object for new wallets and policies: the public half of our authorization key. */
+export function keyOwner() {
+  const der = Buffer.from(process.env.PRIVY_AUTHORIZATION_PRIVATE_KEY!.replace(/^wallet-auth:/, ""), "base64");
+  const publicKey = createPublicKey(createPrivateKey({ key: der, format: "der", type: "pkcs8" }))
+    .export({ format: "der", type: "spki" })
+    .toString("base64");
+  return { public_key: publicKey };
+}
+
+/**
+ * Send a transaction from a Privy server wallet and wait for its hash. Sponsored sends are relayed
+ * asynchronously, so the hash can be empty at first; look it up by transaction id.
+ */
+export async function sendFromServerWallet(walletId: string, tx: { to: `0x${string}`; data: `0x${string}`; chainId: number }, opts: { idempotencyKey: string; sponsor: boolean; signed: boolean }) {
+  const privy = privyServer();
+  const res = await privy.wallets().ethereum().sendTransaction(walletId, {
+    caip2: `eip155:${tx.chainId}`,
+    params: { transaction: { to: tx.to, data: tx.data, chain_id: tx.chainId } },
+    sponsor: opts.sponsor,
+    idempotency_key: opts.idempotencyKey,
+    ...(opts.signed ? { authorization_context: authContext() } : {}),
+  });
+  let hash = res.hash as `0x${string}` | "";
+  for (let i = 0; !hash && res.transaction_id && i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const t = await privy.transactions().get(res.transaction_id);
+    if (t.status === "failed" || t.status === "execution_reverted" || t.status === "provider_error") throw new Error(`transaction ${t.status}`);
+    hash = (t.transaction_hash ?? "") as `0x${string}` | "";
+  }
+  return { hash: hash || null, transactionId: res.transaction_id ?? null };
+}
+
+/** Did Privy refuse this because of the wallet's policy (not a chain or network problem)? */
+export function isPolicyViolation(err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /policy/i.test(msg);
+}

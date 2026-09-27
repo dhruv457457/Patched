@@ -16,6 +16,8 @@ import { SHAREABLE } from "@/lib/market/listingStatus";
 import { fromWire, type Wire } from "@/lib/market/types";
 import type { ListingCard } from "@/lib/market/server";
 import { cn } from "@/lib/utils";
+import { CHAIN_ID } from "@/lib/config";
+import { supabase } from "@/lib/supabase";
 
 export interface PublicProfile {
   wallet: string;
@@ -48,7 +50,7 @@ export interface SponsoredSpot {
   state: "won" | "winning" | "leading";
 }
 
-type Tab = "listings" | "sponsoring" | "earnings" | "bids";
+type Tab = "listings" | "sponsoring" | "campaigns" | "earnings" | "bids";
 
 /**
  * One page per person: what they sell (Listings), what they sponsor (Sponsoring), and, for the owner only, their
@@ -76,9 +78,9 @@ export function ProfileView({ profile: p, cards: wire, sponsoring }: { profile: 
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "listings", label: "Listings", count: cards.length },
     { id: "sponsoring", label: "Sponsoring", count: sponsoring.length },
-    ...(isOwner ? [{ id: "earnings" as const, label: "Earnings" }, { id: "bids" as const, label: "Bids" }] : []),
+    ...(isOwner ? [{ id: "campaigns" as const, label: "Campaigns" }, { id: "earnings" as const, label: "Earnings" }, { id: "bids" as const, label: "Bids" }] : []),
   ];
-  const current = !isOwner && (tab === "earnings" || tab === "bids") ? "listings" : tab;
+  const current = !isOwner && (tab === "earnings" || tab === "bids" || tab === "campaigns") ? "listings" : tab;
 
   return (
     <div className="pb-24">
@@ -184,6 +186,7 @@ export function ProfileView({ profile: p, cards: wire, sponsoring }: { profile: 
           )
         )}
 
+        {isOwner && current === "campaigns" && <CampaignsTab wallet={p.wallet} />}
         {isOwner && current === "earnings" && <DashboardView embedded />}
         {isOwner && current === "bids" && <BidsView embedded />}
       </div>
@@ -191,7 +194,61 @@ export function ProfileView({ profile: p, cards: wire, sponsoring }: { profile: 
   );
 }
 
-const TABS: Tab[] = ["listings", "sponsoring", "earnings", "bids"];
+const TABS: Tab[] = ["listings", "sponsoring", "campaigns", "earnings", "bids"];
+const CAMPAIGN_STATUS: Record<string, string> = { funding: "Waiting for funds", active: "Live", paused: "Paused", ending: "Ending", ended: "Ended" };
+
+interface CampaignRowLite { id: string; event_id: number; budget: number; max_per_spot: number; status: string; ends_at: string }
+
+/** Your campaigns, newest first, and a way to start one. */
+function CampaignsTab({ wallet }: { wallet: string }) {
+  const [rows, setRows] = useState<CampaignRowLite[] | null>(null);
+  const [events, setEvents] = useState<Record<number, string>>({});
+  useEffect(() => {
+    let alive = true;
+    const db = supabase();
+    db.from("brand_campaigns").select("id, event_id, budget, max_per_spot, status, ends_at").eq("chain_id", CHAIN_ID).eq("brand", wallet)
+      .order("created_at", { ascending: false }).limit(20)
+      .then(async ({ data }) => {
+        if (!alive) return;
+        setRows((data ?? []) as CampaignRowLite[]);
+        const ids = [...new Set((data ?? []).map((r) => r.event_id))];
+        if (!ids.length) return;
+        const { data: ev } = await db.from("patched_events").select("event_id, name").eq("chain_id", CHAIN_ID).in("event_id", ids);
+        if (alive) setEvents(Object.fromEntries((ev ?? []).map((e) => [e.event_id, e.name])));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [wallet]);
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-[var(--muted)] max-w-[52ch]">A budget that spreads your logo across an event. Each campaign runs on its own Privy wallet with rules you set.</p>
+        <Link href="/campaigns/new" className="btn-base btn-small btn-primary"><Plus size={14} /> New campaign</Link>
+      </div>
+      {rows === null ? null : rows.length === 0 ? (
+        <Empty text="No campaigns yet." />
+      ) : (
+        <ul className="grid gap-2 list-none m-0 p-0">
+          {rows.map((r) => (
+            <li key={r.id}>
+              <Link href={`/campaigns/${r.id}`} className="flex items-center gap-3 rounded-2xl border-[1.5px] border-[var(--soft)] bg-[var(--card)] px-4 py-3 no-underline text-[var(--ink)] hover:border-[var(--line)]">
+                <span className="grid flex-1 min-w-0">
+                  <b className="truncate">{events[r.event_id] ?? `Event ${r.event_id}`}</b>
+                  <span className="text-sm text-[var(--muted)]">{formatUsdc(Number(r.budget) / 1e6)} budget · up to {formatUsdc(Number(r.max_per_spot) / 1e6)} a spot</span>
+                </span>
+                <span className={cn("text-xs font-bold rounded-full px-2.5 py-1", r.status === "active" ? "bg-[var(--green-soft)] text-[var(--green)]" : "bg-[var(--soft)]")}>
+                  {CAMPAIGN_STATUS[r.status] ?? r.status}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function TabFromUrl({ onTab }: { onTab: (t: Tab) => void }) {
   const t = useSearchParams().get("tab") as Tab | null;

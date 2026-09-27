@@ -23,6 +23,8 @@ export interface AuthContextValue {
   loginWithX: () => Promise<void>;
   sendEmailCode: (email: string) => Promise<void>;
   loginWithEmailCode: (code: string) => Promise<void>;
+  /** Sign in with the browser's wallet (MetaMask and co.) by signing one message, with no Privy window. */
+  loginWithWallet: () => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   /** Embedded-wallet actions (Privy hooks, passed through as-is). */
@@ -60,6 +62,7 @@ const NOT_READY: AuthContextValue = {
   loginWithX: notReady,
   sendEmailCode: notReady,
   loginWithEmailCode: notReady,
+  loginWithWallet: notReady,
   logout: async () => {},
   getAccessToken: async () => null,
   sendTransaction: notReady,

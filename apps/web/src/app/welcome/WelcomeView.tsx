@@ -8,7 +8,6 @@ import { Logo } from "@/components/brand/Logo";
 import { StoryPanel } from "@/components/brand/StoryPanel";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useProfile } from "@/lib/profile";
-import { useAuthedFetch } from "@/lib/authedFetch";
 import { handleProblem } from "@/lib/handles";
 import { STEP_UP_USD } from "@/lib/market/stepUp";
 import { GAS_SPONSORED } from "@/lib/config";
@@ -59,7 +58,7 @@ export function WelcomeView() {
   }
 
   return (
-    <main className="min-h-dvh grid lg:grid-cols-2">
+    <main className="min-h-dvh grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] overflow-x-clip">
       <section className="relative bg-[#FF5A1F] text-[#0B0B0C] px-5 sm:px-10 lg:px-14 py-8 lg:py-10 flex flex-col gap-6 lg:justify-between overflow-hidden">
         <Link href="/" aria-label="Patched home" className="no-underline self-start [--ink:#0B0B0C]">
           <Logo size={32} />
@@ -71,7 +70,7 @@ export function WelcomeView() {
         </p>
       </section>
 
-      <section className="grid place-items-center px-5 py-10 bg-[var(--paper)]">
+      <section className="grid place-items-center px-5 py-10 bg-[var(--paper)] min-w-0">
         {!ready ? (
           <Loader2 className="animate-spin text-[var(--muted)]" aria-label="Loading" />
         ) : !authenticated ? (
@@ -88,12 +87,27 @@ export function WelcomeView() {
 
 /** Privy sign-in in Patched's design: X first, then an email code, then "I have a wallet" (Privy's own window). */
 function SignInCard() {
-  const { loginWithX, sendEmailCode, loginWithEmailCode, login } = usePatchedAuth();
+  const { loginWithX, sendEmailCode, loginWithEmailCode, loginWithWallet, login } = usePatchedAuth();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
-  const [busy, setBusy] = useState<null | "x" | "send" | "code">(null);
+  const [busy, setBusy] = useState<null | "x" | "send" | "code" | "wallet">(null);
   const [error, setError] = useState<string | null>(null);
+  const [noWallet, setNoWallet] = useState(false);
+
+  async function signInWithWallet() {
+    setBusy("wallet");
+    setError(null);
+    try {
+      await loginWithWallet();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === "no-wallet") setNoWallet(true);
+      else setError(/reject|denied|cancel/i.test(msg) ? "You cancelled the signature." : "Your wallet didn't sign in. Try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function run(kind: "x" | "send" | "code", fn: () => Promise<void>) {
     setBusy(kind);
@@ -110,7 +124,7 @@ function SignInCard() {
   }
 
   return (
-    <div className="w-full max-w-[400px] rounded-3xl bg-[var(--card)] border-[1.5px] border-[var(--soft)] shadow-[0_16px_48px_rgba(11,11,12,0.10)] p-7 grid gap-4">
+    <div className="w-full max-w-[420px] min-w-0 rounded-3xl bg-[var(--card)] border-[1.5px] border-[var(--soft)] shadow-[0_16px_48px_rgba(11,11,12,0.10)] p-6 sm:p-7 grid grid-cols-[minmax(0,1fr)] gap-4">
       <span className="justify-self-center inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-[var(--soft)] text-xs font-semibold">
         <ShieldCheck size={13} /> Secured by <b>Privy</b>
       </span>
@@ -133,7 +147,7 @@ function SignInCard() {
           <div className="flex gap-2">
             <input id="welcome-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@brand.com"
               className="flex-1 min-w-0 h-11 px-3.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)]" />
-            <button type="submit" disabled={!!busy || !email.trim()} className="btn-base btn-primary h-11 !rounded-xl">
+            <button type="submit" disabled={!!busy || !email.trim()} className="btn-base btn-primary h-11 !rounded-xl !px-3.5 flex-none">
               {busy === "send" ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />} Send code
             </button>
           </div>
@@ -144,7 +158,7 @@ function SignInCard() {
           <div className="flex gap-2">
             <input id="welcome-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" autoFocus
               className="flex-1 min-w-0 h-11 px-3.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)] font-mono tracking-[0.3em]" />
-            <button type="submit" disabled={!!busy || code.length < 6} className="btn-base btn-primary h-11 !rounded-xl">
+            <button type="submit" disabled={!!busy || code.length < 6} className="btn-base btn-primary h-11 !rounded-xl !px-3.5 flex-none">
               {busy === "code" ? <Loader2 size={15} className="animate-spin" /> : null} Sign in
             </button>
           </div>
@@ -156,9 +170,16 @@ function SignInCard() {
 
       {error && <p className="text-sm text-[var(--red)] font-semibold" role="alert">{error}</p>}
 
-      <button onClick={login} className="h-10 rounded-full font-semibold text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--soft)] inline-flex items-center justify-center gap-2">
-        <Wallet size={15} /> I have a wallet
+      <button onClick={signInWithWallet} disabled={!!busy}
+        className="h-11 rounded-full border-[1.5px] border-[var(--soft)] font-semibold hover:border-[var(--line)] hover:bg-[var(--soft)] inline-flex items-center justify-center gap-2 disabled:opacity-60">
+        {busy === "wallet" ? <Loader2 size={15} className="animate-spin" /> : <Wallet size={15} />} {busy === "wallet" ? "Check your wallet" : "I have a wallet"}
       </button>
+      {noWallet && (
+        <p className="text-sm text-center" role="status">
+          No wallet in this browser. Sign in with X or email, or{" "}
+          <button onClick={login} className="font-semibold underline">connect a phone wallet</button>.
+        </p>
+      )}
       <p className="text-xs text-center text-[var(--muted)] leading-relaxed">
         Even with your own wallet you get a Privy wallet for one-tap bids. Add money to it from any wallet.
       </p>
@@ -170,7 +191,6 @@ function SignInCard() {
 function ProfileStep({ role, setRole, onDone }: { role: Role; setRole: (r: Role) => void; onDone: () => void }) {
   const { xHandle } = usePatchedAuth();
   const { profile, save } = useProfile();
-  const authedFetch = useAuthedFetch();
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
   const [check, setCheck] = useState<{ ok: boolean; text: string } | null>(null);
@@ -194,7 +214,7 @@ function ProfileStep({ role, setRole, onDone }: { role: Role; setRole: (r: Role)
     if (h === profile?.handle) return setCheck({ ok: true, text: `patched/${h} is yours` });
     let alive = true;
     const t = setTimeout(() => {
-      authedFetch(`/api/profile/handle?h=${encodeURIComponent(h)}`)
+      fetch(`/api/profile/handle?h=${encodeURIComponent(h)}`)
         .then((r) => r.json())
         .then((j: { available: boolean; reason: string | null }) => alive && setCheck(j.available ? { ok: true, text: `patched/${h} is yours` } : { ok: false, text: j.reason ?? "That handle is taken." }))
         .catch(() => {});
@@ -203,7 +223,7 @@ function ProfileStep({ role, setRole, onDone }: { role: Role; setRole: (r: Role)
       alive = false;
       clearTimeout(t);
     };
-  }, [handle, profile?.handle, authedFetch]);
+  }, [handle, profile?.handle]);
 
   async function submit() {
     setSaving(true);
@@ -230,10 +250,10 @@ function ProfileStep({ role, setRole, onDone }: { role: Role; setRole: (r: Role)
       </label>
       <label className="grid gap-1.5">
         <span className="text-sm font-semibold">Handle</span>
-        <span className="flex items-center h-12 px-4 rounded-2xl border-[1.5px] border-[var(--line)] bg-[var(--card)] focus-within:outline-3 focus-within:outline-[var(--accent)]">
+        <span className="flex items-center h-12 px-4 rounded-2xl border-[1.5px] border-[var(--line)] bg-[var(--card)] focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-[var(--accent)]">
           <span className="text-[var(--muted)]">@</span>
           <input value={handle} maxLength={31} onChange={(e) => setHandle(e.target.value.toLowerCase())} aria-label="Handle" required
-            className="flex-1 min-w-0 bg-transparent outline-none text-base" />
+            className="flex-1 min-w-0 bg-transparent text-base" style={{ outline: "none" }} />
         </span>
         {check && <span className={cn("text-sm font-semibold", check.ok ? "text-[var(--green)]" : "text-[var(--red)]")} role="status">{check.text}</span>}
       </label>

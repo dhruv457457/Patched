@@ -7,6 +7,7 @@ import {
   useLinkAccount,
   useLoginWithEmail,
   useLoginWithOAuth,
+  useLoginWithSiwe,
   useMfa,
   useMfaEnrollment,
   usePrivy,
@@ -15,9 +16,15 @@ import {
   useWallets,
 } from "@privy-io/react-auth";
 import { useUpdateEmail } from "@privy-io/react-auth/ui";
+import { getAddress } from "viem";
 import { monadMainnet, monadTestnet } from "@patched/shared";
-import { CHAIN } from "@/lib/config";
+import { CHAIN, CHAIN_ID } from "@/lib/config";
 import { takePendingLogin, type AuthContextValue } from "./PrivyAuthProvider";
+
+interface Eip1193 {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  isMetaMask?: boolean;
+}
 
 /**
  * The Privy SDK and every Privy hook the app uses, in one lazily loaded module. Bridge reads the hooks and
@@ -34,6 +41,7 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
   const { update: updateEmail } = useUpdateEmail();
   const { initOAuth } = useLoginWithOAuth();
   const { sendCode, loginWithCode } = useLoginWithEmail();
+  const { generateSiweMessage, loginWithSiwe } = useLoginWithSiwe();
 
   // linkEmail() resolves when Privy reports the email linked.
   const linking = useRef<{ resolve: () => void; reject: (e: unknown) => void } | null>(null);
@@ -68,6 +76,17 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
       loginWithX: () => initOAuth({ provider: "twitter" }),
       sendEmailCode: (email: string) => sendCode({ email }),
       loginWithEmailCode: (code: string) => loginWithCode({ code }),
+      loginWithWallet: async () => {
+        // Sign-In With Ethereum, headless: the wallet shows one signature request and Privy never opens a window.
+        const eth = (window as unknown as { ethereum?: Eip1193 }).ethereum;
+        if (!eth) throw new Error("no-wallet");
+        const [account] = (await eth.request({ method: "eth_requestAccounts" })) as string[];
+        if (!account) throw new Error("no-account");
+        const address = getAddress(account);
+        const message = await generateSiweMessage({ address, chainId: `eip155:${CHAIN_ID}` });
+        const signature = (await eth.request({ method: "personal_sign", params: [message, address] })) as string;
+        await loginWithSiwe({ signature, message, walletClientType: eth.isMetaMask ? "metamask" : undefined, connectorType: "injected" });
+      },
       logout,
       getAccessToken,
       sendTransaction,

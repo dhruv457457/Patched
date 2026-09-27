@@ -173,6 +173,13 @@ export interface ListingCard {
   /** Page colour the creator picked (orange when never set). */
   accent: PageAccent;
   createdBlock: number;
+  /** When the indexer first saw the listing (ms), for time-ordered feeds. */
+  createdAt: number;
+  creator: string;
+  eventId: number;
+  eventSlug: string | null;
+  /** Payout step names from the metadata, in order. */
+  milestoneNames: string[];
 }
 
 /** Listings for Explore / profiles, from the indexed tables. Newest first. */
@@ -180,7 +187,7 @@ export async function fetchListingCards(opts: { creator?: string; limit?: number
   const db = supabase();
   let q = db
     .from("listing_cards")
-    .select("listing_id, creator, creator_handle, creator_name, creator_avatar, creator_verified, surface, status, bidding_ends_at, patch_count, patches_with_bids, top_bids_total, metadata, event_name, created_block")
+    .select("listing_id, creator, creator_handle, creator_name, creator_avatar, creator_verified, surface, status, bidding_ends_at, patch_count, patches_with_bids, top_bids_total, metadata, event_name, event_slug, event_id, created_block, created_at")
     .eq("chain_id", CHAIN_ID)
     .in("status", opts.statuses ?? [1, 2, 3])
     .order("created_block", { ascending: false })
@@ -245,6 +252,11 @@ export async function fetchListingCards(opts: { creator?: string; limit?: number
       headline: page.headline ?? metadata?.headline ?? null,
       accent: page.accent ?? "orange",
       createdBlock: Number(r.created_block),
+      createdAt: new Date(r.created_at).getTime(),
+      creator: r.creator,
+      eventId: Number(r.event_id),
+      eventSlug: r.event_name ? ((r.event_slug as string | null) ?? String(r.event_id)) : null,
+      milestoneNames: metadata?.milestones?.map((m) => m.name) ?? [],
     };
   });
 }

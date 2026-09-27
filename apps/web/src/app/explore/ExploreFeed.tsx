@@ -51,6 +51,11 @@ export function ExploreFeed({ cards: wire, stats, activity }: { cards: Wire<List
   const [surface, setSurface] = useState<Surface>("all");
   const [event, setEvent] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // The Home search box sends people here with ?q=.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setQuery(q);
+  }, []);
   const [now, setNow] = useState(0);
   useIndexerSync();
   useEffect(() => {

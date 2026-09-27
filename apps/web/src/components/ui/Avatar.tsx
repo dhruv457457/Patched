@@ -11,7 +11,9 @@ export function walletGradient(wallet: string) {
 
 /** A round avatar: the picture if there is one, otherwise the first letter on the wallet's own gradient. */
 export function Avatar({ src, name, wallet, size = 40, className }: { src?: string | null; name?: string | null; wallet?: string | null; size?: number; className?: string }) {
-  const letter = (name?.replace(/^@/, "")[0] ?? "?").toUpperCase();
+  // Wallet addresses as names get the gradient alone; a "0" from "0x…" says nothing.
+  const clean = name?.replace(/^@/, "") ?? "";
+  const letter = /^0x/i.test(clean) ? "" : (clean[0] ?? "").toUpperCase();
   return (
     <span
       className={cn("inline-grid place-items-center flex-none rounded-full overflow-hidden font-display font-extrabold text-[#0B0B0C] border-[1.5px] border-[var(--line)]", className)}

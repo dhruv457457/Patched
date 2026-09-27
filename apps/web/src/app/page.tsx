@@ -1,10 +1,14 @@
 import { CHAIN_ID } from "@/lib/config";
 import { formatShortAddress, formatUsdc } from "@/lib/format";
 import { fetchListingCards } from "@/lib/market/server";
+import { fetchHomeFeed } from "@/lib/market/feed";
+import { toWire } from "@/lib/market/types";
 import { supabase } from "@/lib/supabase";
 import { LandingView, type LandingData, type TickerItem } from "./LandingView";
+import { HomeFeed } from "./HomeFeed";
+import { HomeGate } from "./HomeGate";
 
-// Landing are cached for 15s and rebuilt in the background; live bids still stream in over Realtime.
+// Landing and the Home feed are cached for 15s and rebuilt in the background; live bids still stream in over Realtime.
 export const revalidate = 15;
 
 const PASTELS = ["p2", "p3", "p1", "p4", "p5"] as const;
@@ -28,10 +32,11 @@ export default async function LandingPage() {
       amount: formatUsdc(b.amount / 1e6),
     }));
   })();
-  const [live, ticker, { count: bidCount }] = await Promise.all([
+  const [live, ticker, { count: bidCount }, feed] = await Promise.all([
     fetchListingCards({ statuses: [1], limit: 12 }),
     tickerP,
     db.from("bids").select("*", { count: "exact", head: true }).eq("chain_id", CHAIN_ID),
+    fetchHomeFeed(),
   ]);
 
   // Hero: prefer a live listing with a real photo canvas, else the newest live one.
@@ -70,5 +75,10 @@ export default async function LandingPage() {
       }),
     ),
   };
-  return <LandingView {...data} />;
+  return (
+    <HomeGate
+      landing={<LandingView {...data} />}
+      feed={<HomeFeed cards={toWire(feed.cards)} items={feed.items} events={feed.events} />}
+    />
+  );
 }

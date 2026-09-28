@@ -23,7 +23,13 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+// Absolute URLs for link previews (X, Telegram): the public site in production, Vercel's own URL on previews.
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3100");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Patched — Get patched. Get paid.",
   description:
     "Creators sell ad space on their outfit, car or team hoodie; brands bid in USDC per patch; escrow on Monad pays out when the creator shows up.",

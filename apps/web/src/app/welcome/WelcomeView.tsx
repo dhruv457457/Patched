@@ -38,17 +38,23 @@ export function WelcomeView() {
 
   useEffect(() => setNext(safeNext(new URLSearchParams(window.location.search).get("next"))), []);
 
-  // Someone who already finished onboarding doesn't need to see it again.
+  // Someone who already finished onboarding (a role saved in this browser, or a saved @handle from any device)
+  // doesn't see it again. Decided once, when the profile first loads, so saving a handle in step one doesn't skip
+  // step two.
+  const { profile } = useProfile();
   const checked = useRef(false);
   useEffect(() => {
     if (!authenticated || !walletAddress || checked.current) return;
-    checked.current = true;
+    let done = false;
     try {
-      if (localStorage.getItem(roleKey(walletAddress))) router.replace(safeNext(new URLSearchParams(window.location.search).get("next")) ?? "/");
+      done = !!localStorage.getItem(roleKey(walletAddress));
     } catch {
-      /* storage blocked: show onboarding */
+      /* storage blocked */
     }
-  }, [authenticated, walletAddress, router]);
+    if (!done && !profile) return; // wait for the profile before deciding
+    checked.current = true;
+    if (done || profile?.handle) router.replace(safeNext(new URLSearchParams(window.location.search).get("next")) ?? "/");
+  }, [authenticated, walletAddress, profile, router]);
 
   function finish() {
     try {

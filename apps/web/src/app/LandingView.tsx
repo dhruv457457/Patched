@@ -47,7 +47,7 @@ export interface LandingData {
   ticker: TickerItem[];
 }
 
-/** Everything on the landing page leads into the app through sign-in, then on to where the link pointed. */
+/** Links into the app (creating, browsing) go through sign-in first, then on to where they pointed. Creator pages stay public. */
 const viaSignIn = (href: string) => `/welcome?next=${encodeURIComponent(href)}`;
 
 function SectionHead({ eyebrow, title, sub }: { eyebrow: string; title: React.ReactNode; sub?: string }) {
@@ -155,8 +155,9 @@ function HeroScene({ featured, ticker }: Pick<LandingData, "featured" | "ticker"
         </div>
 
         {featured && (
+          // A creator's listing is a public page: open it directly.
           <Link
-            href={viaSignIn(featured.href)}
+            href={featured.href}
             className="absolute top-2 left-2 sm:left-4 z-10 max-w-[calc(100%-16px)] inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--soft)] bg-[var(--card)]/90 backdrop-blur-md pl-2.5 pr-3 py-1.5 text-xs font-semibold no-underline text-[var(--ink)] shadow-[0_8px_24px_rgba(11,11,12,0.10)] hover:border-[var(--line)]"
           >
             <span className="dot live flex-none" />

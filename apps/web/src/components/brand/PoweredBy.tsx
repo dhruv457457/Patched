@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { MonadLogo, PrivyLogo } from "./PartnerLogos";
 
 const PARTNERS = [
-  { href: "https://monad.xyz", Logo: MonadLogo, what: "Escrow, bids and receipts on Monad" },
+  { href: "https://monad.xyz", Logo: MonadLogo, what: "Stablecoin payments, bids and receipts on Monad" },
   { href: "https://privy.io", Logo: PrivyLogo, what: "Sign-in, wallets and one-tap bids by Privy" },
 ];
 

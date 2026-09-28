@@ -279,7 +279,7 @@ function Hero({ featured, ticker, stats, brandLogos }: Pick<LandingData, "featur
               className="inline-flex items-center gap-2 text-xs font-semibold border-[1.5px] border-[var(--line)] rounded-full px-3 py-1 bg-[var(--card)]"
             >
               <span className="w-2 h-2 rotate-45 rounded-[1.5px] bg-[var(--monad)]" />
-              {CHAIN_ID === 143 ? "Live on Monad" : "On Monad testnet"} · USDC escrow
+              {CHAIN_ID === 143 ? "Live on Monad" : "On Monad testnet"} · Paid in stablecoins
             </motion.span>
 
             <h1 className="text-[3.2rem] sm:text-7xl lg:text-[5.4rem] font-extrabold tracking-tight mt-6 leading-[0.95]">
@@ -313,7 +313,7 @@ function Hero({ featured, ticker, stats, brandLogos }: Pick<LandingData, "featur
               transition={{ duration: 0.6, delay: 0.5, ease: EASE }}
               className="text-lg sm:text-xl text-[var(--muted)] max-w-md mt-8"
             >
-              Put patches on your outfit, your car or your team hoodie. Brands bid in USDC for each spot, and escrow pays you when you show up.
+              Put patches on your outfit, your car or your team hoodie. Brands bid in stablecoins (USDC) for each spot, and the money is held safely until you show up.
             </motion.p>
 
             <motion.div
@@ -433,7 +433,7 @@ function Escrow() {
 
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-8 py-24">
-      <SectionHead eyebrow="Escrow" title="Nobody has to trust anybody." sub="The money sits in a contract on Monad. It moves when the proof does." />
+      <SectionHead eyebrow="Your money" title="Nobody has to trust anybody." sub="Brands pay in USDC, a stablecoin worth one dollar. It waits in a contract on Monad and moves only when the proof does." />
       <div ref={ref} className="relative mt-14">
         {/* Progress rail: horizontal on desktop, vertical on mobile */}
         <div aria-hidden="true" className="absolute hidden lg:block left-[12.5%] right-[12.5%] top-[27px] h-[3px] rounded-full bg-[var(--soft)]">

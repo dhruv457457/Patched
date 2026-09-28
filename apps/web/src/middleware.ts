@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Handle subdomains: `dhruv.monad.patched.world` is Dhruv's page and `dhruv.monad.patched.world/6` his listing 6,
- * served by the same /[handle] routes as `monad.patched.world/dhruv`. The base domain comes from HANDLE_DOMAIN
- * (e.g. "monad.patched.world"); without it this does nothing. Anything else on a handle subdomain (sign-in, Studio,
- * Explore) goes to the main site, so the app itself lives on one address.
+ * Handle subdomains are short links: `dhruv.monad.patched.world` opens `monad.patched.world/dhruv`, and
+ * `dhruv.monad.patched.world/6` opens his listing 6. They redirect rather than serve the page themselves because a
+ * sign-in only counts on the exact site it happened on: one address for the app means one sign-in everywhere.
+ * The base domain comes from HANDLE_DOMAIN (e.g. "monad.patched.world"); without it this does nothing.
  */
 export function middleware(req: NextRequest) {
   const base = process.env.HANDLE_DOMAIN?.toLowerCase();
@@ -13,28 +13,17 @@ export function middleware(req: NextRequest) {
   const host = (req.headers.get("host") ?? "").toLowerCase().split(":")[0];
   if (!host.endsWith(`.${base}`)) return NextResponse.next();
   const handle = host.slice(0, -(base.length + 1));
-  // Only one label deep, and not www (which just means the main site).
-  if (!handle || handle.includes(".") || handle === "www") return redirectToMain(req, base);
-
-  const { pathname } = req.nextUrl;
-  const url = req.nextUrl.clone();
-  if (pathname === "/") {
-    url.pathname = `/${handle}`;
-    return NextResponse.rewrite(url);
-  }
-  // /6 is listing 6; /6/opengraph-image is its preview image.
-  if (/^\/\d+(\/.*)?$/.test(pathname)) {
-    url.pathname = `/${handle}${pathname}`;
-    return NextResponse.rewrite(url);
-  }
-  // Links inside the page already carry the handle (/dhruv/6).
-  if (pathname === `/${handle}` || pathname.startsWith(`/${handle}/`)) return NextResponse.next();
-  return redirectToMain(req, base);
+  const { pathname, search } = req.nextUrl;
+  // One label deep and not www; anything else just goes to the main site.
+  if (!handle || handle.includes(".") || handle === "www") return redirect(base, pathname + search);
+  // /6 is listing 6; the bare subdomain is the profile; any other path keeps its own meaning on the main site.
+  if (pathname === "/") return redirect(base, `/${handle}${search}`);
+  if (/^\/\d+\/?$/.test(pathname)) return redirect(base, `/${handle}${pathname}${search}`);
+  return redirect(base, pathname + search);
 }
 
-function redirectToMain(req: NextRequest, base: string) {
-  const url = new URL(req.nextUrl.pathname + req.nextUrl.search, `https://${base}`);
-  return NextResponse.redirect(url, 307);
+function redirect(base: string, path: string) {
+  return NextResponse.redirect(new URL(path, `https://${base}`), 308);
 }
 
 export const config = {

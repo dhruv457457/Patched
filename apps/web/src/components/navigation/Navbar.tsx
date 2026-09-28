@@ -1,81 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Moon, Sun } from "lucide-react";
-import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth/useAuth";
 import { Logo } from "@/components/brand/Logo";
-import { cn } from "@/lib/utils";
-import { NetworkSwitch } from "./NetworkSwitch";
 
-/** The landing page's top bar, for signed-out visitors. Signed-in people get the app sidebar instead. */
+/**
+ * The landing page's top bar, for signed-out visitors: the logo, how it works, and the way in. Everything in the app
+ * goes through sign-in; signed-in people get the app sidebar instead.
+ */
 export function Navbar() {
-  const { theme, toggleTheme } = useTheme();
   const { ready } = useAuth();
-  const pathname = usePathname();
-
-  const links = [
-    { label: "Explore", href: "/explore" },
-    { label: "Events", href: "/events" },
-    { label: "How it works", href: "/#how-it-works" },
-  ];
-  const isActive = (href: string) =>
-    href.startsWith("/#") ? false : href === "/events" ? pathname.startsWith("/events") || pathname.startsWith("/e/") : pathname.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-40 bg-[var(--paper)]/90 backdrop-blur-md border-b-2 border-[var(--line)] px-4 sm:px-8 py-2.5">
+    <header className="sticky top-0 z-40 bg-[var(--paper)]/90 backdrop-blur-md border-b-[1.5px] border-[var(--soft)] px-4 sm:px-8 py-2.5">
       <div className="max-w-6xl mx-auto flex items-center gap-3 justify-between">
-        <div className="flex items-center gap-4 sm:gap-6">
-          <Link href="/" className="inline-flex items-center no-underline" aria-label="Patched home">
-            <Logo size={34} />
+        <Link href="/" className="inline-flex items-center no-underline" aria-label="Patched home">
+          <Logo size={34} />
+        </Link>
+        <nav className="flex items-center gap-1.5 sm:gap-2.5" aria-label="Main navigation">
+          <Link href="/#how-it-works" className="hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-semibold no-underline text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--soft)]">
+            How it works
           </Link>
-          <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
-            {links.map((link) => {
-              const active = isActive(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "relative px-3 py-1.5 rounded-lg text-sm font-semibold no-underline transition-colors",
-                    link.href.startsWith("/#") && "hidden sm:inline-block",
-                    active ? "text-[var(--ink)]" : "text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--soft)]",
-                  )}
-                >
-                  {link.label}
-                  {active && (
-                    <span
-                      className="absolute left-3 right-3 bottom-0.5 h-[2px] pointer-events-none"
-                      style={{ background: "repeating-linear-gradient(90deg, var(--accent) 0 5px, transparent 5px 8px)" }}
-                    />
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <NetworkSwitch className="hidden lg:block" />
-          <button
-            onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            className="w-9 h-9 rounded-xl border-2 border-[var(--line)] bg-[var(--card)] flex items-center justify-center text-[var(--ink)] shadow-[2px_2px_0_var(--shadow)] hover:bg-[var(--soft)] flex-none"
-          >
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
           {!ready ? (
             // Privy loads just after the page; hold its space so the bar doesn't jump.
-            <span className="w-24 h-9 rounded-xl bg-[var(--soft)] motion-safe:animate-pulse" aria-hidden="true" />
+            <span className="w-40 h-9 rounded-xl bg-[var(--soft)] motion-safe:animate-pulse" aria-hidden="true" />
           ) : (
             <>
               <Link href="/welcome" className="btn-base btn-small btn-ghost">Sign in</Link>
-              <Link href="/welcome?next=/studio" className="btn-base btn-small btn-primary hidden sm:inline-flex">Get patched</Link>
+              <Link href="/welcome?next=/studio" className="btn-base btn-small btn-primary">Get patched</Link>
             </>
           )}
-        </div>
+        </nav>
       </div>
     </header>
   );

@@ -19,27 +19,21 @@ import { PoweredBy } from "@/components/brand/PoweredBy";
 import {
   ArrowRight,
   BadgeCheck,
-  Bot,
   Camera,
   Car,
   Clock,
-  Fingerprint,
-  Gavel,
   Lock,
   Receipt,
-  RotateCcw,
   Scissors,
   Shirt,
-  ShieldCheck,
   Users,
   Wallet,
   Zap,
 } from "lucide-react";
 import { SurfaceFigure } from "@/components/surface/SurfaceFigure";
 import { Logo } from "@/components/brand/Logo";
-import { CHAIN_ID, GAS_SPONSORED } from "@/lib/config";
+import { CHAIN_ID } from "@/lib/config";
 import { formatCountdown } from "@/lib/format";
-import { STEP_UP_USD } from "@/lib/market/stepUp";
 import { cn } from "@/lib/utils";
 import type { PatchData } from "@/components/surface/Patch";
 import { DEFAULT_LAYOUTS } from "@/lib/market/layouts";
@@ -73,6 +67,9 @@ export interface LandingData {
 /** Empty example spots for a surface (no brands or prices: this is an illustration, not data). */
 const exampleSpots = (surface: SurfaceKind): PatchData[] =>
   DEFAULT_LAYOUTS[surface].slice(0, 4).map((s, i) => ({ id: i, name: s.name, x: s.x, y: s.y, w: s.w, h: s.h, r: s.r }));
+
+/** Everything on the landing page leads into the app through sign-in, then on to where the link pointed. */
+const viaSignIn = (href: string) => `/welcome?next=${encodeURIComponent(href)}`;
 
 function SectionHead({ eyebrow, title, sub }: { eyebrow: string; title: React.ReactNode; sub?: string }) {
   return (
@@ -177,7 +174,7 @@ function HeroStage({ featured, ticker }: Pick<LandingData, "featured" | "ticker"
         </div>
         <div className="bg-[var(--stage)]">
           {featured ? (
-            <Link href={featured.href} aria-label={`Open ${featured.title}`} className="block">
+            <Link href={viaSignIn(featured.href)} aria-label={`Open ${featured.title}`} className="block">
               {figure}
             </Link>
           ) : (
@@ -300,11 +297,11 @@ function Hero({ featured, ticker, stats }: Pick<LandingData, "featured" | "ticke
               transition={{ duration: 0.6, delay: 0.62, ease: EASE }}
               className="flex items-center gap-3.5 flex-wrap mt-8"
             >
-              <Link href="/studio" className="btn-base btn-primary group">
+              <Link href={viaSignIn("/studio")} className="btn-base btn-primary group">
                 Get patched
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
-              <Link href="/explore" className="btn-base">
+              <Link href={viaSignIn("/explore")} className="btn-base">
                 Browse live patches
               </Link>
             </motion.div>
@@ -410,7 +407,7 @@ function HowItWorks() {
 
 const SURFACES: { kind: SurfaceKind; icon: typeof Shirt; name: string; pays: string; proof: string; figure: string; live: string }[] = [
   { kind: "outfit", icon: Shirt, name: "Outfit", pays: "Per event, like Token2049", proof: "Print photo and ticket, then venue photos", figure: "w-[132px]", live: "See a live outfit" },
-  { kind: "car", icon: Car, name: "Car", pays: "Per week, for 1 to 8 weeks", proof: "A dated photo every week", figure: "w-full", live: "See a live car" },
+  { kind: "car", icon: Car, name: "Vehicle", pays: "Per event day, for 1 to 3 days", proof: "Dated photos at the venue each day", figure: "w-full", live: "See a live vehicle" },
   { kind: "hoodie", icon: Users, name: "Team hoodie", pays: "Per hackathon, split across the team", proof: "Team check-in, then stage or demo photos", figure: "w-[176px]", live: "See a live hoodie" },
 ];
 
@@ -450,7 +447,7 @@ function Surfaces({ surfaceLinks }: Pick<LandingData, "surfaceLinks">) {
                       <dd>{s.proof}</dd>
                     </dl>
                   </div>
-                  <Link href={href ?? "/studio"} className="btn-base btn-small mt-auto self-start group">
+                  <Link href={viaSignIn(href ?? "/studio")} className="btn-base btn-small mt-auto self-start group">
                     {href ? s.live : `List your ${s.name.toLowerCase()}`}
                     <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                   </Link>
@@ -519,108 +516,6 @@ function Escrow() {
   );
 }
 
-/* ─────────────────────────────── Powered by Privy ─────────────────────────────── */
-
-const PRIVY_POINTS = [
-  { icon: Wallet, title: "A wallet in a second", body: "Sign in with X or email and Privy makes a self-custodial wallet for you. No seed phrase, no extension." },
-  { icon: Zap, title: "One tap, no gas", body: GAS_SPONSORED ? "Bidding is one signature, and Patched pays the network fee." : "Bidding is one signature." },
-  { icon: Bot, title: "It bids while you're away", body: "Turn on auto-bid and a Privy server wallet, restricted by policy to this one action, keeps you on top within seconds." },
-  { icon: Fingerprint, title: "A passkey for the big moves", body: `Face ID, Touch ID or Windows Hello confirms anything over $${STEP_UP_USD.toLocaleString("en-US")}.` },
-];
-
-function PoweredByPrivy() {
-  return (
-    <section className="max-w-6xl mx-auto px-4 sm:px-8 py-24">
-      <div className="flex items-center justify-between gap-6 flex-wrap">
-        <SectionHead
-          eyebrow="Powered by Privy"
-          title="Bidding that doesn't feel like crypto."
-          sub="No wallet pop-up on every bid, no gas to buy, no browser extension. Privy runs the wallet underneath so the auction is the only thing you think about."
-        />
-        <Reveal delay={0.1} className="flex-none">
-          <span className="hidden sm:inline-flex items-center gap-2 rounded-full border-2 border-[var(--line)] bg-[var(--card)] px-4 py-2 text-sm font-bold shadow-[3px_3px_0_var(--shadow)]">
-            <ShieldCheck className="w-4 h-4 text-[var(--accent-text)]" />
-            Secured by <PrivyLogo height={16} />
-          </span>
-        </Reveal>
-      </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-12">
-        {PRIVY_POINTS.map((p, i) => (
-          <Reveal key={p.title} delay={0.08 * i} className="h-full">
-            <div className="card-surface p-5 h-full flex flex-col gap-3">
-              <span className="w-11 h-11 rounded-xl border-2 border-[var(--line)] bg-[var(--accent-soft)] grid place-items-center flex-none">
-                <p.icon className="w-5 h-5 text-[var(--accent-text)]" />
-              </span>
-              <h3 className="text-lg font-bold">{p.title}</h3>
-              <p className="text-sm text-[var(--muted)]">{p.body}</p>
-            </div>
-          </Reveal>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────────────────────── Two sides ─────────────────────────────── */
-
-const SIDES = [
-  {
-    who: "For creators",
-    title: "Your next event pays for the flight.",
-    points: [
-      { icon: Scissors, text: "Set a floor and a buy-now price for every patch" },
-      { icon: Wallet, text: "Paid in USDC per milestone, 5% fee on payouts" },
-      { icon: Zap, text: GAS_SPONSORED ? "Sign in with email. Gas is on us" : "Sign in with email or X, no wallet app needed" },
-      { icon: Users, text: "Team hoodies split payouts automatically" },
-    ],
-    cta: { href: "/studio", label: "Start a listing" },
-    tone: "accent",
-  },
-  {
-    who: "For brands",
-    title: "Bid on the exact spot you want.",
-    points: [
-      { icon: RotateCcw, text: "Outbid? Your USDC comes back instantly" },
-      { icon: Gavel, text: "Buy now to skip the auction" },
-      { icon: ShieldCheck, text: "72 hours to dispute a missed proof" },
-      { icon: Receipt, text: "Win a receipt NFT you can resell" },
-    ],
-    cta: { href: "/explore", label: "Browse patches" },
-    tone: "plain",
-  },
-] as const;
-
-function TwoSides() {
-  return (
-    <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-24">
-      <div className="grid md:grid-cols-2 gap-6">
-        {SIDES.map((s, i) => (
-          <Reveal key={s.who} delay={0.12 * i} className="h-full">
-            <div className={cn("card-surface p-7 sm:p-8 h-full flex flex-col", s.tone === "accent" && "bg-[var(--accent-soft)]")}>
-              <span className="eyebrow">{s.who}</span>
-              <h3 className="text-3xl font-extrabold mt-2">{s.title}</h3>
-              <ul className="mt-6 space-y-3">
-                {s.points.map((p) => (
-                  <li key={p.text} className="flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-lg border-[1.5px] border-[var(--line)] bg-[var(--card)] grid place-items-center flex-none">
-                      <p.icon className="w-4 h-4 text-[var(--accent-text)]" />
-                    </span>
-                    {p.text}
-                  </li>
-                ))}
-              </ul>
-              <Link href={s.cta.href} className={cn("btn-base mt-8 self-start group", s.tone === "accent" && "btn-primary")}>
-                {s.cta.label}
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-          </Reveal>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 /* ─────────────────────────────── Final CTA ─────────────────────────────── */
 
 function FinalCta() {
@@ -635,7 +530,7 @@ function FinalCta() {
           <div className="relative">
             <h2 className="text-4xl sm:text-6xl font-extrabold tracking-tight">Stop posting for free.</h2>
             <p className="text-lg sm:text-xl mt-4 max-w-md mx-auto opacity-80">Set up your first listing in a few minutes. It costs nothing until a brand pays you.</p>
-            <Link href="/studio" className="btn-base mt-8 group">
+            <Link href={viaSignIn("/studio")} className="btn-base mt-8 group">
               Get patched
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
@@ -653,14 +548,9 @@ function Footer() {
         <Logo size={28} />
         <span className="hidden sm:inline">Get patched. Get paid.</span>
       </div>
-      <nav className="flex items-center gap-5">
-        <Link href="/explore" className="hover:text-[var(--ink)] transition-colors">Explore</Link>
-        <Link href="/studio" className="hover:text-[var(--ink)] transition-colors">Studio</Link>
-        <Link href="/bids" className="hover:text-[var(--ink)] transition-colors">My bids</Link>
-        <span className="flex items-center gap-2">
-          Built on <MonadLogo height={15} />
-        </span>
-      </nav>
+      <span className="flex items-center gap-2">
+        Built on <MonadLogo height={15} /> with <PrivyLogo height={15} />
+      </span>
     </footer>
   );
 }
@@ -674,14 +564,12 @@ export function LandingView({ featured, stats, ticker, surfaceLinks }: LandingDa
         <HowItWorks />
         <Surfaces surfaceLinks={surfaceLinks} />
         <Escrow />
-        <PoweredByPrivy />
         <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-20">
           <Reveal className="grid gap-6 justify-items-center">
             <span className="eyebrow">Built with</span>
             <PoweredBy height={30} />
           </Reveal>
         </section>
-        <TwoSides />
         <FinalCta />
         <Footer />
       </div>

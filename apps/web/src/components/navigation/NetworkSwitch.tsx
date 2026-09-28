@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Check, ChevronDown } from "lucide-react";
+import { Check } from "lucide-react";
 import { DEPLOYMENTS } from "@patched/shared";
 import { CHAIN_ID, NETWORK_SITES } from "@/lib/config";
 import { cn } from "@/lib/utils";
@@ -23,41 +22,7 @@ export function networkUrl(chain: 10143 | 143, path: string) {
 
 const DOT = { 10143: "bg-[#F5B400]", 143: "bg-[var(--green)]" } as const;
 
-/** The network you're on, and a switch to the other one (a separate site with the same account). */
-export function NetworkSwitch({ className }: { className?: string }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const current = NETWORK_SITES[CHAIN_ID];
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-
-  return (
-    <div className={cn("relative", className)} ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-label={`Network: ${current.label}. Switch network`}
-        className="inline-flex items-center gap-1.5 h-9 rounded-xl border-2 border-[var(--line)] bg-[var(--card)] px-2.5 text-xs font-semibold shadow-[2px_2px_0_var(--shadow)] hover:bg-[var(--soft)]"
-      >
-        <span className={cn("w-2 h-2 rounded-full", DOT[CHAIN_ID])} />
-        {current.label}
-        <ChevronDown size={13} />
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-[280px] max-w-[calc(100vw-32px)] card-surface p-2 z-50">
-          <NetworkOptions onPick={() => setOpen(false)} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** The two networks as a list; used by the navbar switch, the account menu and Settings. */
+/** The two networks as a list; used by the account menu and Settings. */
 export function NetworkOptions({ onPick }: { onPick?: () => void }) {
   const pathname = usePathname();
   const notes = {

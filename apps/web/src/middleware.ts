@@ -1,10 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { RESERVED_HANDLES } from "@/lib/handles";
 
 /**
- * Handle subdomains are short links: `dhruv.monad.patched.world` opens `monad.patched.world/dhruv`, and
- * `dhruv.monad.patched.world/6` opens his listing 6. They redirect rather than serve the page themselves because a
- * sign-in only counts on the exact site it happened on: one address for the app means one sign-in everywhere.
- * The base domain comes from HANDLE_DOMAIN (e.g. "monad.patched.world"); without it this does nothing.
+ * Creator subdomains: `dhruv.monad.patched.world` shows Dhruv's page and `dhruv.monad.patched.world/6` his listing 6,
+ * and the address stays that way. The base domain comes from HANDLE_DOMAIN (e.g. "monad.patched.world"); without it
+ * this does nothing.
+ * - Links inside the page carry the handle (/dhruv/6): they go to the short form (/6).
+ * - Another creator's page (/maya, /maya/3) goes to their own subdomain.
+ * - Everything else (sign-in, Studio, Explore) lives on the main site.
+ * One sign-in across all of these needs Privy's HttpOnly cookies on the parent domain (Privy dashboard).
  */
 export function middleware(req: NextRequest) {
   const base = process.env.HANDLE_DOMAIN?.toLowerCase();
@@ -14,17 +18,27 @@ export function middleware(req: NextRequest) {
   if (!host.endsWith(`.${base}`)) return NextResponse.next();
   const handle = host.slice(0, -(base.length + 1));
   const { pathname, search } = req.nextUrl;
-  // One label deep and not www; anything else just goes to the main site.
-  if (!handle || handle.includes(".") || handle === "www") return redirect(base, pathname + search);
-  // /6 is listing 6; the bare subdomain is the profile; any other path keeps its own meaning on the main site.
-  if (pathname === "/") return redirect(base, `/${handle}${search}`);
-  if (/^\/\d+\/?$/.test(pathname)) return redirect(base, `/${handle}${pathname}${search}`);
-  return redirect(base, pathname + search);
+  if (!handle || handle.includes(".") || handle === "www") return to(`https://${base}${pathname}${search}`);
+
+  // The creator's own pages, served right here.
+  if (pathname === "/" || /^\/\d+(\/.*)?$/.test(pathname)) {
+    const url = req.nextUrl.clone();
+    url.pathname = pathname === "/" ? `/${handle}` : `/${handle}${pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  const m = pathname.match(/^\/([^/]+)(?:\/(\d+))?\/?$/);
+  if (m && !RESERVED_HANDLES.has(m[1].toLowerCase())) {
+    const who = m[1].toLowerCase();
+    const listing = m[2] ? `/${m[2]}` : "/";
+    // Handles with dots or underscores can't be subdomains; those stay on the main site.
+    if (who === handle) return to(`https://${host}${listing}${search}`);
+    if (/^[a-z0-9-]+$/.test(who)) return to(`https://${who}.${base}${listing}${search}`);
+  }
+  return to(`https://${base}${pathname}${search}`);
 }
 
-function redirect(base: string, path: string) {
-  return NextResponse.redirect(new URL(path, `https://${base}`), 308);
-}
+const to = (url: string) => NextResponse.redirect(url, 307);
 
 export const config = {
   // Pages only: assets, API routes and Next's own files are served on any host as-is.

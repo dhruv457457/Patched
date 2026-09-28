@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { Lock, Pause, Play } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * The sign-in story: five short chapters that show the whole product in one pass. Sign in with X and Privy makes
@@ -65,8 +66,8 @@ export function StoryPanel({ className }: { className?: string }) {
   const surface = SURFACE_OF_SCENE[scene];
 
   return (
-    <div className={className}>
-      <div className="flex items-center gap-1.5" aria-label="How Patched works, in five steps">
+    <div className={cn("flex flex-col", className)}>
+      <div className="flex items-center gap-1.5 flex-none" aria-label="How Patched works, in five steps">
         {CHAPTERS.map((c, i) => (
           <button key={c.kicker} onClick={() => go(i)} aria-label={`Step ${i + 1}: ${c.kicker}`} className="flex-1 h-4 flex items-center">
             <span className="block w-full h-1 rounded-full bg-[#0B0B0C]/20 overflow-hidden">
@@ -88,7 +89,7 @@ export function StoryPanel({ className }: { className?: string }) {
         </button>
       </div>
 
-      <div className="flex items-center gap-4 mt-3 text-[15px] text-[#0B0B0C]" role="tablist" aria-label="What creators patch">
+      <div className="flex items-center gap-4 mt-3 flex-none text-[15px] text-[#0B0B0C]" role="tablist" aria-label="What creators patch">
         <span className="font-mono text-xs font-semibold tracking-[0.06em]">PATCH ANYTHING</span>
         {SURFACES.map((s, i) => {
           const on = scene >= 1 && scene <= 3 && surface === i;
@@ -101,13 +102,13 @@ export function StoryPanel({ className }: { className?: string }) {
         })}
       </div>
 
-      <svg viewBox="0 0 592 360" className="w-full h-auto mt-3" role="img" aria-label={CHAPTERS[scene].caption}>
+      <svg viewBox="0 0 592 360" className="w-full h-auto mt-3 lg:flex-1 lg:min-h-0" role="img" aria-label={CHAPTERS[scene].caption}>
         <Stage scene={scene} loop={loop} reduce={!!reduce} />
       </svg>
 
-      <motion.div key={loop} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mt-3 min-h-[84px] text-[#0B0B0C]">
+      <motion.div key={loop} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mt-3 min-h-[84px] lg:min-h-0 flex-none text-[#0B0B0C]">
         <span className="font-mono text-[13px] font-semibold tracking-[0.06em]">0{scene + 1} / 05 · {CHAPTERS[scene].kicker.toUpperCase()}</span>
-        <p className="font-display font-extrabold text-[clamp(20px,2.2vw,27px)] leading-[1.1] tracking-[-0.03em] mt-1.5">{CHAPTERS[scene].caption}</p>
+        <p className="font-display font-extrabold text-[clamp(20px,2.2vw,27px)] lg:text-[clamp(17px,min(2vw,3.2vh),27px)] leading-[1.1] tracking-[-0.03em] mt-1.5">{CHAPTERS[scene].caption}</p>
       </motion.div>
     </div>
   );

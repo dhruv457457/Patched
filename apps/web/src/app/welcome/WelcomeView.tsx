@@ -60,19 +60,19 @@ export function WelcomeView() {
   }
 
   return (
-    <main className="min-h-dvh grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] overflow-x-clip">
-      <section className="relative bg-[#FF5A1F] text-[#0B0B0C] px-5 sm:px-10 lg:px-14 py-8 lg:py-10 flex flex-col gap-6 lg:justify-between overflow-hidden">
+    <main className="min-h-dvh lg:h-dvh grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] overflow-x-clip">
+      <section className="relative bg-[#FF5A1F] text-[#0B0B0C] px-5 sm:px-10 lg:px-14 py-8 lg:py-[4vh] flex flex-col gap-6 lg:gap-[2.4vh] lg:min-h-0 overflow-hidden">
         <Link href="/" aria-label="Patched home" className="no-underline self-start [--ink:#0B0B0C]">
           <Logo size={32} />
         </Link>
-        <h1 className="font-display font-extrabold text-[clamp(44px,6vw,76px)] leading-[0.92] tracking-[-0.05em]">Get patched.<br />Get paid.</h1>
-        <StoryPanel className="max-w-[600px] w-full" />
-        <p className="flex items-center gap-2 text-sm">
+        <h1 className="font-display font-extrabold text-[clamp(44px,6vw,76px)] lg:text-[clamp(36px,min(5.4vw,8.5vh),76px)] leading-[0.92] tracking-[-0.05em] flex-none">Get patched.<br />Get paid.</h1>
+        <StoryPanel className="max-w-[600px] w-full lg:flex-1 lg:min-h-0" />
+        <p className="flex items-center gap-2 text-sm flex-none">
           <Lock size={15} className="flex-none" /> <span className="inline-flex items-center gap-1.5 flex-wrap">Sign-in, wallets and one-tap bids powered by <PrivyLogo height={15} /></span>
         </p>
       </section>
 
-      <section className="order-first lg:order-none grid place-items-center px-5 py-8 lg:py-10 bg-[var(--paper)] min-w-0">
+      <section className="order-first lg:order-none grid place-items-center px-5 py-8 lg:py-6 bg-[var(--paper)] min-w-0 lg:min-h-0 lg:overflow-y-auto">
         {!ready ? (
           <Loader2 className="animate-spin text-[var(--muted)]" aria-label="Loading" />
         ) : !authenticated ? (

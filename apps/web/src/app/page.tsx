@@ -30,11 +30,13 @@ export default async function LandingPage() {
       amount: formatUsdc(b.amount / 1e6),
     }));
   })();
-  const [live, ticker, { count: bidCount }, feed] = await Promise.all([
+  const [live, ticker, { count: bidCount }, feed, { data: brands }] = await Promise.all([
     fetchListingCards({ statuses: [1], limit: 12 }),
     tickerP,
     db.from("bids").select("*", { count: "exact", head: true }).eq("chain_id", CHAIN_ID),
     fetchHomeFeed(),
+    // Real sponsors' logos for the hero's 3D patches.
+    db.from("profiles").select("brand_logo_url").not("brand_logo_url", "is", null).limit(6),
   ]);
 
   // The hero's "live now" chip: the open auction ending soonest.
@@ -56,6 +58,7 @@ export default async function LandingPage() {
       bids: bidCount ?? 0,
     },
     ticker,
+    brandLogos: (brands ?? []).map((b) => b.brand_logo_url as string).filter((u) => /^https:\/\//.test(u)),
   };
   return (
     <HomeGate

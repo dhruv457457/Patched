@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -17,7 +17,8 @@ import { EASE, Reveal } from "@/components/ui/Reveal";
 import { MonadLogo, PrivyLogo } from "@/components/brand/PartnerLogos";
 import { PoweredBy } from "@/components/brand/PoweredBy";
 import { StoryPanel } from "@/components/brand/StoryPanel";
-import type { SceneKind } from "@/components/brand/PatchScene";
+import type { SceneKind, SceneLogo } from "@/components/brand/PatchScene";
+import { MONAD_MARK_SVG, MONAD_WORDMARK_SVG, PRIVY_WORDMARK_SVG, svgUrl } from "@/components/brand/partnerSvg";
 import {
   ArrowRight,
   BadgeCheck,
@@ -45,6 +46,8 @@ export interface LandingData {
   stats: { liveListings: number; escrowedUsd: number; bids: number };
   /** Recent bids, newest first. */
   ticker: TickerItem[];
+  /** Logos real sponsors uploaded on Patched, shown on the hero's 3D patches next to Monad and Privy. */
+  brandLogos: string[];
 }
 
 /** Links into the app (creating, browsing) go through sign-in first, then on to where they pointed. Creator pages stay public. */
@@ -97,7 +100,7 @@ const SCENE_MS = 5200;
  * The hero's right side: the 3D object (outfit, vehicle, team hoodie in turn) with patches landing on it, the
  * auction ending soonest, and the latest real bids. The object only animates while it's on screen.
  */
-function HeroScene({ featured, ticker }: Pick<LandingData, "featured" | "ticker">) {
+function HeroScene({ featured, ticker, brandLogos }: Pick<LandingData, "featured" | "ticker" | "brandLogos">) {
   const reduce = useReducedMotion();
   const box = useRef<HTMLDivElement>(null);
   const inView = useInView(box, { margin: "120px" });
@@ -134,6 +137,10 @@ function HeroScene({ featured, ticker }: Pick<LandingData, "featured" | "ticker"
   }, [ticker.length]);
 
   const bid = ticker[bidIdx];
+  const logos = useMemo<SceneLogo[]>(
+    () => [...brandLogos.map((src) => ({ src })), { src: svgUrl(MONAD_WORDMARK_SVG), mark: svgUrl(MONAD_MARK_SVG) }, { src: svgUrl(PRIVY_WORDMARK_SVG) }],
+    [brandLogos],
+  );
 
   return (
     <motion.div
@@ -151,7 +158,7 @@ function HeroScene({ featured, ticker }: Pick<LandingData, "featured" | "ticker"
           style={{ background: "radial-gradient(closest-side, var(--accent-soft), transparent)" }}
         />
         <div className="absolute inset-0">
-          <PatchScene kind={SCENES[idx].kind} reduced={!!reduce} active={inView && pageVisible} />
+          <PatchScene kind={SCENES[idx].kind} logos={logos} reduced={!!reduce} active={inView && pageVisible} />
         </div>
 
         {featured && (
@@ -196,7 +203,7 @@ function HeroScene({ featured, ticker }: Pick<LandingData, "featured" | "ticker"
       </div>
 
       {/* Which surface is on screen; tap one to hold it */}
-      <div className="flex justify-center mt-2" role="tablist" aria-label="What creators patch">
+      <div className="flex justify-center mt-2" role="tablist" aria-label="Shown in 3D">
         <div className="inline-flex p-1 rounded-full bg-[var(--soft)]">
           {SCENES.map((sc, i) => {
             const on = i === idx;
@@ -245,7 +252,7 @@ function Stat({ value, label, currency }: { value: number; label: string; curren
   );
 }
 
-function Hero({ featured, ticker, stats }: Pick<LandingData, "featured" | "ticker" | "stats">) {
+function Hero({ featured, ticker, stats, brandLogos }: Pick<LandingData, "featured" | "ticker" | "stats" | "brandLogos">) {
   const line = {
     hidden: { opacity: 0, y: "0.5em" },
     show: (i: number) => ({ opacity: 1, y: 0, transition: { duration: 0.7, delay: 0.1 + i * 0.12, ease: EASE } }),
@@ -338,7 +345,7 @@ function Hero({ featured, ticker, stats }: Pick<LandingData, "featured" | "ticke
             )}
           </div>
 
-          <HeroScene featured={featured} ticker={ticker} />
+          <HeroScene featured={featured} ticker={ticker} brandLogos={brandLogos} />
         </div>
       </div>
     </section>
@@ -504,11 +511,11 @@ function Footer() {
   );
 }
 
-export function LandingView({ featured, stats, ticker }: LandingData) {
+export function LandingView({ featured, stats, ticker, brandLogos }: LandingData) {
   return (
     <MotionConfig reducedMotion="user">
       <div className="overflow-x-clip">
-        <Hero featured={featured} ticker={ticker} stats={stats} />
+        <Hero featured={featured} ticker={ticker} stats={stats} brandLogos={brandLogos} />
         <Ticker items={ticker} />
         <StoryBand />
         <Escrow />

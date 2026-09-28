@@ -2,42 +2,35 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   AnimatePresence,
   MotionConfig,
   motion,
-  useMotionValue,
+  useInView,
   useReducedMotion,
   useScroll,
   useSpring,
-  useTransform,
 } from "motion/react";
 import NumberFlow from "@number-flow/react";
 import { EASE, Reveal } from "@/components/ui/Reveal";
 import { MonadLogo, PrivyLogo } from "@/components/brand/PartnerLogos";
 import { PoweredBy } from "@/components/brand/PoweredBy";
+import { StoryPanel } from "@/components/brand/StoryPanel";
+import type { SceneKind } from "@/components/brand/PatchScene";
 import {
   ArrowRight,
   BadgeCheck,
   Camera,
-  Car,
   Clock,
   Lock,
   Receipt,
-  Scissors,
-  Shirt,
-  Users,
-  Wallet,
   Zap,
 } from "lucide-react";
-import { SurfaceFigure } from "@/components/surface/SurfaceFigure";
 import { Logo } from "@/components/brand/Logo";
 import { CHAIN_ID } from "@/lib/config";
 import { formatCountdown } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { PatchData } from "@/components/surface/Patch";
-import { DEFAULT_LAYOUTS } from "@/lib/market/layouts";
-import type { SurfaceKind } from "@/lib/market/types";
 
 export interface TickerItem {
   who: string;
@@ -46,27 +39,13 @@ export interface TickerItem {
 }
 
 export interface LandingData {
-  /** Newest live listing, shown in the hero. */
-  featured: {
-    href: string;
-    title: string;
-    surface: SurfaceKind;
-    canvasImage: string | null;
-    biddingEndsAt: number;
-    patches: PatchData[];
-  } | null;
+  /** The open auction ending soonest, for the hero's "live now" chip. */
+  featured: { href: string; title: string; biddingEndsAt: number; topBidsUsd: number } | null;
   /** Live numbers from the indexer. */
   stats: { liveListings: number; escrowedUsd: number; bids: number };
   /** Recent bids, newest first. */
   ticker: TickerItem[];
-  /** A live listing per surface, if any, for the surface cards. */
-  surfaceLinks: Partial<Record<SurfaceKind, string>>;
 }
-
-
-/** Empty example spots for a surface (no brands or prices: this is an illustration, not data). */
-const exampleSpots = (surface: SurfaceKind): PatchData[] =>
-  DEFAULT_LAYOUTS[surface].slice(0, 4).map((s, i) => ({ id: i, name: s.name, x: s.x, y: s.y, w: s.w, h: s.h, r: s.r }));
 
 /** Everything on the landing page leads into the app through sign-in, then on to where the link pointed. */
 const viaSignIn = (href: string) => `/welcome?next=${encodeURIComponent(href)}`;
@@ -104,10 +83,41 @@ function DecoPatch({ color, className, delay = 0, rotate = 0 }: { color: string;
 
 /* ─────────────────────────────── Hero ─────────────────────────────── */
 
-function HeroStage({ featured, ticker }: Pick<LandingData, "featured" | "ticker">) {
+// The 3D scene is its own chunk, loaded only here and only in the browser.
+const PatchScene = dynamic(() => import("@/components/brand/PatchScene"), { ssr: false, loading: () => null });
+
+const SCENES: { kind: SceneKind; label: string }[] = [
+  { kind: "outfit", label: "Outfits" },
+  { kind: "car", label: "Vehicles" },
+  { kind: "hoodie", label: "Team hoodies" },
+];
+const SCENE_MS = 5200;
+
+/**
+ * The hero's right side: the 3D object (outfit, vehicle, team hoodie in turn) with patches landing on it, the
+ * auction ending soonest, and the latest real bids. The object only animates while it's on screen.
+ */
+function HeroScene({ featured, ticker }: Pick<LandingData, "featured" | "ticker">) {
   const reduce = useReducedMotion();
+  const box = useRef<HTMLDivElement>(null);
+  const inView = useInView(box, { margin: "120px" });
+  const [pageVisible, setPageVisible] = useState(true);
+  const [idx, setIdx] = useState(0);
+  const [auto, setAuto] = useState(true);
   const [cd, setCd] = useState<string | null>(null);
   const [bidIdx, setBidIdx] = useState(0);
+
+  useEffect(() => {
+    const onVis = () => setPageVisible(!document.hidden);
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  useEffect(() => {
+    if (!auto || reduce || !inView || !pageVisible) return;
+    const t = setInterval(() => setIdx((i) => (i + 1) % SCENES.length), SCENE_MS);
+    return () => clearInterval(t);
+  }, [auto, reduce, inView, pageVisible, idx]);
 
   useEffect(() => {
     if (!featured) return;
@@ -123,88 +133,95 @@ function HeroStage({ featured, ticker }: Pick<LandingData, "featured" | "ticker"
     return () => clearInterval(t);
   }, [ticker.length]);
 
-  // Gentle 3D tilt that follows the pointer.
-  const mx = useMotionValue(0);
-  const my = useMotionValue(0);
-  const rotateY = useSpring(useTransform(mx, [-0.5, 0.5], [7, -7]), { stiffness: 150, damping: 18 });
-  const rotateX = useSpring(useTransform(my, [-0.5, 0.5], [-5, 5]), { stiffness: 150, damping: 18 });
-  const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (reduce) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    mx.set((e.clientX - r.left) / r.width - 0.5);
-    my.set((e.clientY - r.top) / r.height - 0.5);
-  };
-  const onLeave = () => {
-    mx.set(0);
-    my.set(0);
-  };
-
   const bid = ticker[bidIdx];
-  const figure = featured ? (
-    <SurfaceFigure surface={featured.surface} imageUrl={featured.canvasImage} patches={featured.patches} mode="static" showPrices={false} animateDrop />
-  ) : (
-    <SurfaceFigure surface="outfit" patches={exampleSpots("outfit")} mode="static" showPrices={false} animateDrop />
-  );
 
   return (
     <motion.div
-      className="relative mx-auto w-full max-w-[380px] [perspective:1200px]"
-      initial={{ opacity: 0, y: 40, rotate: 3 }}
-      animate={{ opacity: 1, y: 0, rotate: 0 }}
-      transition={{ duration: 0.8, delay: 0.25, ease: EASE }}
-      onPointerMove={onMove}
-      onPointerLeave={onLeave}
+      ref={box}
+      className="relative w-full"
+      initial={{ opacity: 0, scale: 0.94 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.9, delay: 0.2, ease: EASE }}
     >
-      <DecoPatch color="p3" className="w-14 h-10 -top-5 -left-8 z-10" rotate={-14} delay={1.1} />
-      <DecoPatch color="p2" className="w-12 h-12 top-1/3 -right-9 z-10" rotate={10} delay={1.25} />
-      <DecoPatch color="p1" className="w-16 h-9 bottom-24 -left-10 z-10 hidden sm:block" rotate={6} delay={1.4} />
+      <div className="relative h-[380px] sm:h-[480px] lg:h-[560px]">
+        {/* A soft warm glow behind the object */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-[8%] rounded-full blur-3xl opacity-80"
+          style={{ background: "radial-gradient(closest-side, var(--accent-soft), transparent)" }}
+        />
+        <div className="absolute inset-0">
+          <PatchScene kind={SCENES[idx].kind} reduced={!!reduce} active={inView && pageVisible} />
+        </div>
 
-      <motion.div style={{ rotateX, rotateY, transformStyle: "preserve-3d" }} className="card-surface overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b-2 border-[var(--line)] bg-[var(--card)]">
-          <span className="flex items-center gap-2 text-xs font-semibold min-w-0">
-            {featured ? <span className="dot live" /> : <span className="dot" style={{ background: "var(--muted)" }} />}
-            <span className="truncate">{featured ? featured.title : "Example layout"}</span>
-          </span>
-          {featured && cd && (
-            <span className="flex items-center gap-1.5 font-mono text-xs font-semibold tabular-nums flex-none">
-              <Clock className="w-3.5 h-3.5 text-[var(--accent-text)]" />
-              {cd}
-            </span>
-          )}
-        </div>
-        <div className="bg-[var(--stage)]">
-          {featured ? (
-            <Link href={viaSignIn(featured.href)} aria-label={`Open ${featured.title}`} className="block">
-              {figure}
-            </Link>
-          ) : (
-            figure
-          )}
-        </div>
-      </motion.div>
+        {featured && (
+          <Link
+            href={viaSignIn(featured.href)}
+            className="absolute top-2 left-2 sm:left-4 z-10 max-w-[calc(100%-16px)] inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--soft)] bg-[var(--card)]/90 backdrop-blur-md pl-2.5 pr-3 py-1.5 text-xs font-semibold no-underline text-[var(--ink)] shadow-[0_8px_24px_rgba(11,11,12,0.10)] hover:border-[var(--line)]"
+          >
+            <span className="dot live flex-none" />
+            <span className="truncate">Live now: {featured.title}</span>
+            {featured.topBidsUsd > 0 && <span className="font-mono flex-none">${featured.topBidsUsd.toLocaleString("en-US")}</span>}
+            {cd && (
+              <span className="flex items-center gap-1 font-mono tabular-nums text-[var(--accent-text)] flex-none">
+                <Clock className="w-3.5 h-3.5" />
+                {cd}
+              </span>
+            )}
+          </Link>
+        )}
 
-      {/* Latest real bids, cycling */}
-      {bid && (
-        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-[88%] z-20">
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.div
-              key={bidIdx}
-              initial={{ opacity: 0, y: 18, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -14, scale: 0.96 }}
-              transition={{ type: "spring", stiffness: 320, damping: 26 }}
-              className="flex items-center gap-2.5 rounded-xl border-2 border-[var(--line)] bg-[var(--card)] px-3 py-2 text-xs shadow-[3px_3px_0_var(--shadow)]"
-            >
-              <span className="w-7 h-7 rounded-lg bg-[var(--accent)] text-[var(--on-accent)] grid place-items-center flex-none">
-                <Zap className="w-3.5 h-3.5" />
-              </span>
-              <span className="min-w-0 truncate">
-                <b>{bid.who}</b> bid <b className="font-mono">{bid.amount}</b> on {bid.label}
-              </span>
-            </motion.div>
-          </AnimatePresence>
+        {bid && (
+          <div className="absolute bottom-3 right-2 sm:right-4 z-10 w-[min(300px,80%)]">
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={bidIdx}
+                initial={{ opacity: 0, y: 16, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -12, scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 320, damping: 26 }}
+                className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-[var(--soft)] bg-[var(--card)]/90 backdrop-blur-md px-3 py-2 text-xs shadow-[0_10px_28px_rgba(11,11,12,0.14)]"
+              >
+                <span className="w-7 h-7 rounded-lg bg-[var(--accent)] text-[var(--on-accent)] grid place-items-center flex-none">
+                  <Zap className="w-3.5 h-3.5" />
+                </span>
+                <span className="min-w-0 truncate">
+                  <b>{bid.who}</b> bid <b className="font-mono">{bid.amount}</b> on {bid.label}
+                </span>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      {/* Which surface is on screen; tap one to hold it */}
+      <div className="flex justify-center mt-2" role="tablist" aria-label="What creators patch">
+        <div className="inline-flex p-1 rounded-full bg-[var(--soft)]">
+          {SCENES.map((sc, i) => {
+            const on = i === idx;
+            return (
+              <button
+                key={sc.kind}
+                role="tab"
+                aria-selected={on}
+                onClick={() => {
+                  setIdx(i);
+                  setAuto(false);
+                }}
+                className={cn("relative h-9 px-4 rounded-full text-sm font-bold transition-colors", on ? "text-[var(--ink)]" : "text-[var(--muted)] hover:text-[var(--ink)]")}
+              >
+                {on && (
+                  <motion.span layoutId="scene-tab" className="absolute inset-0 rounded-full bg-[var(--card)] shadow-[0_2px_8px_rgba(11,11,12,0.12)]" transition={{ type: "spring", stiffness: 420, damping: 34 }} />
+                )}
+                <span className="relative">{sc.label}</span>
+                {on && auto && !reduce && (
+                  <span key={idx} aria-hidden="true" className="absolute left-4 right-4 bottom-1 h-[2px] rounded-full bg-[var(--accent)] origin-left [animation:story-fill_5.2s_linear_forwards]" />
+                )}
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
     </motion.div>
   );
 }
@@ -245,7 +262,7 @@ function Hero({ featured, ticker, stats }: Pick<LandingData, "featured" | "ticke
         }}
       />
       <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-10 sm:pt-16 pb-20">
-        <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-14 lg:gap-8 items-center">
+        <div className="grid lg:grid-cols-[1fr_1.05fr] gap-10 lg:gap-6 items-center">
           <div>
             <motion.span
               initial={{ opacity: 0, y: 10 }}
@@ -320,7 +337,7 @@ function Hero({ featured, ticker, stats }: Pick<LandingData, "featured" | "ticke
             )}
           </div>
 
-          <HeroStage featured={featured} ticker={ticker} />
+          <HeroScene featured={featured} ticker={ticker} />
         </div>
       </div>
     </section>
@@ -356,106 +373,37 @@ function Ticker({ items }: { items: TickerItem[] }) {
   );
 }
 
-/* ─────────────────────────────── How it works ─────────────────────────────── */
+/* ─────────────────────────────── How it works: the story ─────────────────────────────── */
 
-const STEPS = [
-  { icon: Camera, title: "Snap", body: "Take a selfie, or a photo of your car or team hoodie. AI turns it into a clean white canvas." },
-  { icon: Scissors, title: "Patch", body: "Drop patches where logos go. Set a floor and a buy-now price for each one." },
-  { icon: Wallet, title: "Get paid", body: "Brands outbid each other live. USDC waits in escrow and pays out when you show up." },
-];
-
-function HowItWorks() {
+/** The same animated story as the sign-in page: five short chapters, outfits, vehicles and hoodies in one pass. */
+function StoryBand() {
   return (
-    <section id="how-it-works" className="max-w-6xl mx-auto px-4 sm:px-8 py-24 scroll-mt-20">
-      <SectionHead eyebrow="How it works" title="Live in three steps." sub="No website to build, no payment processor to set up, no designer to hire." />
-      <div className="relative grid md:grid-cols-3 gap-6 mt-12">
-        {/* Stitch line connecting the steps */}
-        <svg aria-hidden="true" className="hidden md:block absolute top-[38px] left-[16%] right-[16%] h-2 w-[68%] overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 2">
-          <motion.line
-            x1="0" y1="1" x2="100" y2="1"
-            stroke="var(--accent)" strokeWidth="2" strokeDasharray="3 2" vectorEffect="non-scaling-stroke"
-            initial={{ pathLength: 0 }}
-            whileInView={{ pathLength: 1 }}
-            viewport={{ once: true, margin: "-120px" }}
-            transition={{ duration: 1.2, ease: "easeInOut", delay: 0.2 }}
-          />
-        </svg>
-        {STEPS.map((s, i) => (
-          <Reveal key={s.title} delay={0.15 * i}>
-            <div className="relative text-center md:px-4">
-              <motion.div
-                whileHover={{ rotate: -6, scale: 1.06 }}
-                transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                className="relative mx-auto w-[76px] h-[76px] rounded-2xl border-2 border-[var(--line)] bg-[var(--card)] shadow-[4px_4px_0_var(--shadow)] grid place-items-center"
-              >
-                <s.icon className="w-8 h-8 text-[var(--accent-text)]" strokeWidth={2.2} />
-                <span className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-[var(--ink)] text-[var(--paper)] font-mono text-xs font-bold grid place-items-center">
-                  {i + 1}
-                </span>
-              </motion.div>
-              <h3 className="text-2xl font-bold mt-6">{s.title}</h3>
-              <p className="text-[var(--muted)] mt-2 max-w-xs mx-auto">{s.body}</p>
-            </div>
-          </Reveal>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────────────────────── Surfaces ─────────────────────────────── */
-
-const SURFACES: { kind: SurfaceKind; icon: typeof Shirt; name: string; pays: string; proof: string; figure: string; live: string }[] = [
-  { kind: "outfit", icon: Shirt, name: "Outfit", pays: "Per event, like Token2049", proof: "Print photo and ticket, then venue photos", figure: "w-[132px]", live: "See a live outfit" },
-  { kind: "car", icon: Car, name: "Vehicle", pays: "Per event day, for 1 to 3 days", proof: "Dated photos at the venue each day", figure: "w-full", live: "See a live vehicle" },
-  { kind: "hoodie", icon: Users, name: "Team hoodie", pays: "Per hackathon, split across the team", proof: "Team check-in, then stage or demo photos", figure: "w-[176px]", live: "See a live hoodie" },
-];
-
-function Surfaces({ surfaceLinks }: Pick<LandingData, "surfaceLinks">) {
-  return (
-    <section className="bg-[var(--soft)]/60 border-y-2 border-dashed border-[var(--soft)]">
-      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-24">
-        <SectionHead
-          eyebrow="Three surfaces"
-          title="Wear it, drive it, hack in it."
-          sub="Each patch is its own live auction, so a brand bids on the exact spot it wants: the chest, the front door, the hood."
-        />
-        <div className="grid md:grid-cols-3 gap-6 mt-12">
-          {SURFACES.map((s, i) => {
-            const href = surfaceLinks[s.kind];
-            return (
-              <Reveal key={s.kind} delay={0.1 * i} className="h-full">
-                <motion.div
-                  whileHover={{ y: -6 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="card-surface p-4 flex flex-col gap-5 h-full hover:shadow-[7px_7px_0_var(--shadow)] transition-shadow"
-                >
-                  <div className="bg-[var(--stage)] rounded-xl p-4 grid place-items-center h-[240px] overflow-hidden">
-                    <div className={s.figure}>
-                      <SurfaceFigure surface={s.kind} patches={exampleSpots(s.kind)} mode="static" showPrices={false} />
-                    </div>
-                  </div>
-                  <div className="px-1">
-                    <h3 className="text-2xl font-bold flex items-center gap-2">
-                      <s.icon className="w-5 h-5 text-[var(--accent-text)]" />
-                      {s.name}
-                    </h3>
-                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm mt-3">
-                      <dt className="font-mono text-xs uppercase text-[var(--muted)] font-semibold pt-0.5">Pays</dt>
-                      <dd>{s.pays}</dd>
-                      <dt className="font-mono text-xs uppercase text-[var(--muted)] font-semibold pt-0.5">Proof</dt>
-                      <dd>{s.proof}</dd>
-                    </dl>
-                  </div>
-                  <Link href={viaSignIn(href ?? "/studio")} className="btn-base btn-small mt-auto self-start group">
-                    {href ? s.live : `List your ${s.name.toLowerCase()}`}
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                </motion.div>
-              </Reveal>
-            );
-          })}
-        </div>
+    <section id="how-it-works" className="px-4 sm:px-8 py-20 sm:py-24 scroll-mt-16">
+      <div className="max-w-6xl mx-auto rounded-[36px] bg-[#FF5A1F] text-[#0B0B0C] px-6 sm:px-12 py-12 sm:py-16 grid gap-10 lg:grid-cols-[0.85fr_1.15fr] items-center overflow-hidden">
+        <Reveal>
+          <span className="font-mono text-xs font-semibold tracking-[0.12em]">HOW IT WORKS</span>
+          <h2 className="font-display font-extrabold text-[clamp(40px,5.2vw,68px)] leading-[0.94] tracking-[-0.045em] mt-3">
+            Snap it.
+            <br />
+            Patch it.
+            <br />
+            Get paid.
+          </h2>
+          <p className="text-lg mt-6 max-w-sm">
+            From a photo to USDC in your wallet. Outfits, vehicles and team hoodies all work the same way, and Privy makes
+            the wallet when you sign in.
+          </p>
+          <Link
+            href={viaSignIn("/studio")}
+            className="mt-8 inline-flex items-center gap-2 h-12 px-6 rounded-full bg-[#0B0B0C] text-white font-bold no-underline hover:opacity-90 group"
+          >
+            Start a listing
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </Reveal>
+        <Reveal delay={0.12}>
+          <StoryPanel className="w-full" />
+        </Reveal>
       </div>
     </section>
   );
@@ -491,7 +439,7 @@ function Escrow() {
           {ESCROW.map((e, i) => (
             <Reveal key={e.title} delay={0.1 * i}>
               <li className="flex lg:flex-col lg:items-center lg:text-center gap-5 lg:gap-0">
-                <span className="relative z-10 flex-none w-14 h-14 rounded-2xl border-2 border-[var(--line)] bg-[var(--card)] shadow-[3px_3px_0_var(--shadow)] grid place-items-center">
+                <span className="relative z-10 flex-none w-14 h-14 rounded-2xl border-[1.5px] border-[var(--soft)] bg-[var(--card)] shadow-[0_10px_28px_rgba(11,11,12,0.10)] grid place-items-center">
                   {e.big ? (
                     <span className="font-display font-extrabold text-lg text-[var(--accent-text)]">{e.big}</span>
                   ) : (
@@ -522,7 +470,7 @@ function FinalCta() {
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-16">
       <Reveal>
-        <div className="relative overflow-hidden card-surface bg-[var(--accent)] text-[var(--on-accent)] px-6 py-16 sm:py-20 text-center">
+        <div className="relative overflow-hidden rounded-[36px] bg-[#0B0B0C] text-white px-6 py-16 sm:py-24 text-center">
           <DecoPatch color="p3" className="w-20 h-14 top-8 left-[8%]" rotate={-12} delay={0.2} />
           <DecoPatch color="p2" className="w-14 h-14 bottom-10 left-[16%] hidden sm:block" rotate={8} delay={0.35} />
           <DecoPatch color="p1" className="w-16 h-11 top-12 right-[10%]" rotate={14} delay={0.5} />
@@ -530,7 +478,7 @@ function FinalCta() {
           <div className="relative">
             <h2 className="text-4xl sm:text-6xl font-extrabold tracking-tight">Stop posting for free.</h2>
             <p className="text-lg sm:text-xl mt-4 max-w-md mx-auto opacity-80">Set up your first listing in a few minutes. It costs nothing until a brand pays you.</p>
-            <Link href={viaSignIn("/studio")} className="btn-base mt-8 group">
+            <Link href={viaSignIn("/studio")} className="btn-base btn-primary mt-8 group">
               Get patched
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
@@ -555,14 +503,13 @@ function Footer() {
   );
 }
 
-export function LandingView({ featured, stats, ticker, surfaceLinks }: LandingData) {
+export function LandingView({ featured, stats, ticker }: LandingData) {
   return (
     <MotionConfig reducedMotion="user">
       <div className="overflow-x-clip">
         <Hero featured={featured} ticker={ticker} stats={stats} />
         <Ticker items={ticker} />
-        <HowItWorks />
-        <Surfaces surfaceLinks={surfaceLinks} />
+        <StoryBand />
         <Escrow />
         <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-20">
           <Reveal className="grid gap-6 justify-items-center">

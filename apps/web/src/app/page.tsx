@@ -11,8 +11,6 @@ import { HomeGate } from "./HomeGate";
 // Landing and the Home feed are cached for 15s and rebuilt in the background; live bids still stream in over Realtime.
 export const revalidate = 15;
 
-const PASTELS = ["p2", "p3", "p1", "p4", "p5"] as const;
-
 export default async function LandingPage() {
   const db = supabase();
   // The ticker needs a second lookup after the bids, so run that chain alongside the listings.
@@ -39,8 +37,9 @@ export default async function LandingPage() {
     fetchHomeFeed(),
   ]);
 
-  // Hero: prefer a live listing with a real photo canvas, else the newest live one.
-  const hero = live.find((c) => c.canvasImage) ?? live[0] ?? null;
+  // The hero's "live now" chip: the open auction ending soonest.
+  const now = Date.now();
+  const hero = [...live].filter((c) => c.biddingEndsAt > now).sort((x, y) => x.biddingEndsAt - y.biddingEndsAt)[0] ?? null;
 
   const escrowed = live.reduce((sum, c) => sum + c.topBidsTotal, 0n);
 
@@ -48,19 +47,8 @@ export default async function LandingPage() {
     featured: hero && {
       href: hero.href,
       title: hero.title,
-      surface: hero.surface,
-      canvasImage: hero.canvasImage,
       biddingEndsAt: hero.biddingEndsAt,
-      patches: hero.patches
-        .filter((p) => p.side === hero.viewId)
-        .map((p) => ({
-          id: p.id, name: p.label, x: p.x, y: p.y, w: p.w, h: p.h, r: p.r,
-          topBid: Number(p.topBid) / 1e6,
-          brand: p.topBidder ? p.brandName ?? formatShortAddress(p.topBidder) : null,
-          logo: p.logoUrl,
-          c: PASTELS[p.id % PASTELS.length],
-          bought: p.bought,
-        })),
+      topBidsUsd: Number(hero.topBidsTotal) / 1e6,
     },
     stats: {
       liveListings: live.length,
@@ -68,12 +56,6 @@ export default async function LandingPage() {
       bids: bidCount ?? 0,
     },
     ticker,
-    surfaceLinks: Object.fromEntries(
-      (["outfit", "car", "hoodie"] as const).flatMap((s) => {
-        const c = live.find((x) => x.surface === s);
-        return c ? [[s, c.href]] : [];
-      }),
-    ),
   };
   return (
     <HomeGate

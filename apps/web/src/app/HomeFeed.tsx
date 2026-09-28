@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MonadLogo, PrivyLogo } from "@/components/brand/PartnerLogos";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, CalendarDays, Car, Clock, Gavel, Link2, MapPin, Plus, Search, Shirt, Sparkles, Users, Zap } from "lucide-react";
@@ -99,7 +100,7 @@ export function HomeFeed({ cards: wire, items, events }: HomeFeedProps) {
             ))}
           </RailCard>
         )}
-        <p className="text-xs text-[var(--muted)] px-1">Patched · USDC escrow on Monad · Wallets by Privy</p>
+        <p className="text-xs text-[var(--muted)] px-1 flex items-center gap-1.5 flex-wrap">Stablecoins on <MonadLogo height={11} className="text-[var(--ink)]" /> · wallets by <PrivyLogo height={11} className="text-[var(--ink)]" /></p>
       </aside>
     </div>
   );

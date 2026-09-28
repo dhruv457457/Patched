@@ -14,7 +14,7 @@ import {
 } from "motion/react";
 import NumberFlow from "@number-flow/react";
 import { EASE, Reveal } from "@/components/ui/Reveal";
-import { MonadLogo, PrivyLogo } from "@/components/brand/PartnerLogos";
+import { MonadLogo, MonadMark, PrivyLogo } from "@/components/brand/PartnerLogos";
 import { PoweredBy } from "@/components/brand/PoweredBy";
 import { StoryPanel } from "@/components/brand/StoryPanel";
 import type { SceneKind, SceneLogo } from "@/components/brand/PatchScene";
@@ -278,7 +278,7 @@ function Hero({ featured, ticker, stats, brandLogos }: Pick<LandingData, "featur
               transition={{ duration: 0.5, ease: EASE }}
               className="inline-flex items-center gap-2 text-xs font-semibold border-[1.5px] border-[var(--line)] rounded-full px-3 py-1 bg-[var(--card)]"
             >
-              <span className="w-2 h-2 rotate-45 rounded-[1.5px] bg-[var(--monad)]" />
+              <MonadMark size={14} className="flex-none" />
               {CHAIN_ID === 143 ? "Live on Monad" : "On Monad testnet"} · Paid in stablecoins
             </motion.span>
 

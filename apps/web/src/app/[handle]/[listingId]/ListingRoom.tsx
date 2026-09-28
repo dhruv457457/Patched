@@ -6,6 +6,7 @@ import { ArrowRight, BadgeCheck, Pause, Play, Check, Clock, Crown, ExternalLink,
 import NumberFlow from "@number-flow/react";
 import { LogoMark } from "@/components/brand/Logo";
 import { Avatar as WalletAvatar } from "@/components/ui/Avatar";
+import { MonadMark } from "@/components/brand/PartnerLogos";
 import { SurfaceFigure } from "@/components/surface/SurfaceFigure";
 import type { PatchData, PatchHandle } from "@/components/surface/Patch";
 import { Pill } from "@/components/ui/Pill";
@@ -304,7 +305,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
         <Link href="/" className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--soft)] bg-[var(--card)] pl-1.5 pr-3 py-1 text-xs font-semibold no-underline text-[var(--ink)] hover:border-[var(--line)]">
           <LogoMark size={20} /> Made with Patched <span className="text-[var(--muted)] hidden sm:inline">· Open the app</span>
         </Link>
-        <span className="ml-auto text-xs font-semibold text-[var(--muted)] hidden sm:inline">USDC on Monad</span>
+        <span className="ml-auto text-xs font-semibold text-[var(--muted)] hidden sm:inline-flex items-center gap-1.5">USDC on <MonadMark size={13} /> Monad</span>
         <button
           className="h-8 px-3 rounded-full border-[1.5px] border-[var(--soft)] bg-[var(--card)] text-xs font-semibold inline-flex items-center gap-1.5 hover:border-[var(--line)] ml-auto sm:ml-0"
           onClick={() => navigator.clipboard.writeText(window.location.href).then(() => toast("Link copied. Paste it anywhere.")).catch(() => {})}

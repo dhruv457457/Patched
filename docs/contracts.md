@@ -179,6 +179,10 @@ Bid on several patches of one listing in one transaction, all or nothing. Source
 
 Holds no funds; bids, receipts and refunds belong to the caller. Deployed with `script/DeploySweeper.s.sol`: testnet `0x65f0e25e5D503FCc5549624D6f9B138b17A3054f`, mainnet `0x1fe99eb81EDF35699c3FA6BE3cb5D6749084A9ba`.
 
+## Upgrades
+
+`PatchedMarket` runs behind an ERC-1967 (UUPS) proxy. The proxy address is the market address everyone uses and it never changes; an upgrade swaps the logic only, so listings, escrowed money and the receipts stay. Only the default admin can call `upgradeToAndCall`, and `freezeUpgrades()` turns upgrades off permanently (do this before real money, or put the admin behind a multisig and timelock). Rules for changing the contract: append new state variables at the end only, never reorder or remove any, keep defaults in `initialize`, and add a test that upgrades and checks the old data.
+
 ## Deployments
 
 Addresses live in `packages/shared/src/addresses.ts` (`DEPLOYMENTS[chainId]`). All verified on Sourcify (exact match).
@@ -187,7 +191,7 @@ PatchAutoBidder: testnet `0x6388BDAc2b256Df65CF0f29DFd946Fa2479f32DA` (block 652
 
 | Network | PatchedMarket | PatchReceipt | Deploy block | Notes |
 |---|---|---|---|---|
-| Monad testnet (10143) | `0xd3808dE425493934f036f8E77ef5a4de332e9552` | `0x598Ea7C3Cf739Dbea1B809d5Cd0174818b680a8f` | 65054031 | v2 with `bidFor`. Params: bond $5, min step $1. Demo event #1 + listing #1 seeded. |
+| Monad testnet (10143) | `0x2AaC6f2E5221078982736F33271CD6484d0cd005` (UUPS proxy) | `0xC4Abf876Ef2A6FF1A324F4916c330fe01efAeD4e` | 66627600 | v3: upgradeable proxy, `approveProof`, adjustable review window. Auto-bidder `0x67dE9d8CCB7A79FF57cCf117D73135724c46Cf2c`, sweeper `0x1c9F3029E4a7Bf86B4E3D7fC64C471E7DBF7cF6B`. Demo params: bond $1, min step $1, review 2 min, anti-snipe 1 min. Event #1 (Token2049 Demo). Previous v2 (not a proxy): `0xd3808dE425493934f036f8E77ef5a4de332e9552`. |
 | Monad mainnet (143), **active** | `0xcBE6fA620fc6F61192a94CFbd33aae7893579a56` | `0x18Cb49292c1562932a1EdcC6674a30Fd71b27F97` | 107528109 | Test run on **TestUSD** (`0xB0fabbBc9a26dC78b200a36b2344cAc2518D0e3f`, tUSD, 6 decimals, `faucet()` gives 1,000 per wallet per day). Params: bond $1, min step $1, cap $1000. Deployed with `script/DeployTestUSD.s.sol`. |
 | Monad mainnet (143), real USDC, parked | `0xCB44d40E69Dc267e9C7CF65d89f22857e3d82aed` | `0xa6e439a22aad8fc7f596a92B5900D7b8724A01F5` | 107361531 | Real USDC. Params: bond $5, min step $1, new creators capped at $200. Switch back by restoring it in `addresses.ts` (or redeploy with `Deploy.s.sol` if the contract changed). |
 

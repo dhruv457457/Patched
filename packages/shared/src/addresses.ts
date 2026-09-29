@@ -18,15 +18,17 @@ export interface PatchedDeployment {
 }
 
 export const DEPLOYMENTS: Record<number, PatchedDeployment | undefined> = {
-  // Monad testnet — v2 with bidFor, deployed 2026-09-23, verified on Sourcify (exact match)
+  // Monad testnet: v3, deployed 2026-09-29. PatchedMarket is an upgradeable proxy (UUPS): `market` stays the same
+  // address across upgrades. Previous (non-proxy) v2 market: 0xd3808dE425493934f036f8E77ef5a4de332e9552.
   10143: {
-    market: "0xd3808dE425493934f036f8E77ef5a4de332e9552",
-    receipt: "0x598Ea7C3Cf739Dbea1B809d5Cd0174818b680a8f",
+    market: "0x2AaC6f2E5221078982736F33271CD6484d0cd005",
+    receipt: "0xC4Abf876Ef2A6FF1A324F4916c330fe01efAeD4e",
     usdc: "0x534b2f3A21130d7a60830c2Df862319e593943A3",
-    deployBlock: 65054031,
-    autoBidder: "0x6388BDAc2b256Df65CF0f29DFd946Fa2479f32DA",
-    autoBidderBlock: 65221700,
-    sweeper: "0x65f0e25e5D503FCc5549624D6f9B138b17A3054f",
+    deployBlock: 66627600,
+    autoBidder: "0x67dE9d8CCB7A79FF57cCf117D73135724c46Cf2c",
+    autoBidderBlock: 66627730,
+    sweeper: "0x1c9F3029E4a7Bf86B4E3D7fC64C471E7DBF7cF6B",
+    approvals: true,
   },
   // Monad mainnet, test run with TestUSD (tUSD, faucet token), deployed 2026-09-24, verified on Sourcify.
   // Real-USDC deployment for later: market 0xCB44d40E69Dc267e9C7CF65d89f22857e3d82aed,

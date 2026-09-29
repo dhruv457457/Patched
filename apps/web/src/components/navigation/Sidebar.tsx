@@ -45,7 +45,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex sticky top-0 h-dvh flex-col flex-none w-[76px] xl:w-[248px] px-2 xl:px-3 py-3" aria-label="Main">
+    <aside className="hidden md:flex sticky top-0 z-40 h-dvh flex-col flex-none w-[76px] xl:w-[248px] px-2 xl:px-3 py-3" aria-label="Main">
       <Link href="/" aria-label="Patched home" className="h-[52px] flex items-center px-2.5 mb-2 no-underline rounded-full hover:bg-[var(--soft)] self-start">
         <span className="xl:hidden"><LogoMark size={32} /></span>
         <span className="hidden xl:inline-flex"><Logo size={30} /></span>

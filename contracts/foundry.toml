@@ -7,8 +7,6 @@ evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
 via_ir = true
-# Monad allows contracts up to 128 KB (the usual limit is 24 KB), and the market is above 24 KB.
-code_size_limit = 131072
 remappings = [
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
   "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
@@ -24,7 +22,8 @@ depth = 300
 fail_on_revert = false
 
 [rpc_endpoints]
-monad_testnet = "${MONAD_TESTNET_RPC_URL}"
+arc_testnet = "${ARC_TESTNET_RPC_URL}"
+arc = "${ARC_RPC_URL}"
 
 [fmt]
 line_length = 110

@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
-import { MonadLogo, PrivyLogo } from "./PartnerLogos";
+import { ArcLogo, CircleLogo } from "./PartnerLogos";
 
 const PARTNERS = [
-  { href: "https://monad.xyz", Logo: MonadLogo, what: "Stablecoin payments, bids and receipts on Monad" },
-  { href: "https://privy.io", Logo: PrivyLogo, what: "Sign-in, wallets and one-tap bids by Privy" },
+  { href: "https://www.arc.io", Logo: ArcLogo, what: "Bids, escrow and receipts on Arc, with gas paid in USDC" },
+  { href: "https://www.circle.com", Logo: CircleLogo, what: "Wallets and USDC by Circle" },
 ];
 
 /** The partners Patched runs on, with what each one does here. */

@@ -34,8 +34,8 @@ export function friendlyError(err: unknown): string {
   if (/FaucetCooldown/i.test(msg)) return "You already used the faucet today. Try again tomorrow.";
   if (/no gas/i.test(msg))
     return GAS_SPONSORED
-      ? "Your wallet needs a little MON to pay gas. Use the Patched wallet (email or X login) for gas-free bids."
-      : "Your wallet needs a little MON to pay gas. Send some MON to your wallet address (in the account menu).";
+      ? "Your wallet needs a little more USDC: on Arc, gas is paid in USDC too."
+      : "Your wallet needs a little more USDC: on Arc, gas is paid in USDC too. Add USDC to your wallet address (in the account menu).";
   if (/insufficient/i.test(msg))
     return TEST_TOKEN
       ? "Not enough test USD in your wallet. Get 1,000 free from the faucet on My bids."

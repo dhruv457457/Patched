@@ -63,7 +63,7 @@ export function SettingsView() {
       {tab === "network" && (
         <Card className="p-5 grid gap-3">
           <h2 className="font-bold text-xl">Network</h2>
-          <p className="text-sm text-[var(--muted)]">Patched runs on Monad testnet and on Monad mainnet. Each is its own site with its own listings and bids.</p>
+          <p className="text-sm text-[var(--muted)]">Patched runs on Arc testnet and on Arc mainnet. Each is its own site with its own listings and bids.</p>
           <NetworkOptions />
         </Card>
       )}
@@ -213,9 +213,9 @@ function SecuritySettings() {
         <p className="text-sm text-[var(--muted)]">
           {isEmbeddedWallet
             ? GAS_SPONSORED
-              ? `Patched wallet on ${CHAIN.name}. Gas is sponsored, so you don't need MON.`
-              : `Patched wallet on ${CHAIN.name}. Send USDC to bid and a little MON for gas to this address.`
-            : `External wallet on ${CHAIN.name}. You pay gas in MON for each transaction.`}
+              ? `Patched wallet on ${CHAIN.name}. Gas is sponsored, so every dollar you add goes to bids.`
+              : `Patched wallet on ${CHAIN.name}. Send USDC to this address: it pays for bids and, on Arc, for gas too.`
+            : `External wallet on ${CHAIN.name}. Gas on Arc is paid in USDC, from the same balance.`}
         </p>
         <div className="flex gap-2 flex-wrap">
           <Button size="small" onClick={() => walletAddress && navigator.clipboard.writeText(walletAddress).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {})}>

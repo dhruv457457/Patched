@@ -11,7 +11,7 @@ import { Seg } from "@/components/ui/Seg";
 import { toast } from "@/components/ui/Toast";
 import { formatUsdc } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CHAIN_ID } from "@/lib/config";
+import { IS_TESTNET } from "@/lib/config";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useAuthedFetch } from "@/lib/authedFetch";
 import { CAR_VIEW_LAYOUTS, DEFAULT_LAYOUTS, MODEL_SHOT_LAYOUTS } from "@/lib/market/layouts";
@@ -144,7 +144,7 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
   const [bidUnit, setBidUnit] = useState<BidUnit>("day");
   // Demo timing: minute-long auctions and proofs a few minutes apart, so a whole listing can be shown in one sitting.
   const [proofStepMs, setProofStepMs] = useState(0);
-  const demo = CHAIN_ID === 10143;
+  const demo = IS_TESTNET;
   const bidMs = Math.round((Number(bidAmount) || 0) * (BID_UNITS.find((u) => u.unit === bidUnit)?.ms ?? DAY));
   const bidLimit = bidLimits(demo);
   // The clock differs between server and browser, so "Ends ..." is shown only once the page is in the browser.

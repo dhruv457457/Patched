@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "Patched — Get patched. Get paid.",
   description:
-    "Creators sell ad space on their outfit, car or team hoodie; brands bid in USDC per patch; escrow on Monad pays out when the creator shows up.",
+    "Creators sell ad space on their outfit, car or team hoodie; brands bid in USDC per patch; escrow on Arc pays out when the creator shows up.",
 };
 
 import { ProfileProvider } from "@/lib/profile";

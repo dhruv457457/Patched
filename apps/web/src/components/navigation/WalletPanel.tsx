@@ -22,7 +22,7 @@ export function WalletPanel({ onNavigate }: { onNavigate?: () => void }) {
   const { walletAddress, logout } = usePatchedAuth();
   const { profile } = useProfile();
   const me = `/${profile?.handle ?? walletAddress?.toLowerCase() ?? ""}`;
-  const { usdc, mon } = useBalances(walletAddress);
+  const { usdc } = useBalances(walletAddress);
   const isAdmin = useIsAdmin(walletAddress);
   const { theme, toggleTheme } = useTheme();
   const [copied, setCopied] = useState(false);
@@ -46,7 +46,7 @@ export function WalletPanel({ onNavigate }: { onNavigate?: () => void }) {
         <b className="font-mono text-3xl tabular-nums leading-none">{usdc === null ? "…" : `$${usdc}`}</b>
         <span className="text-xs text-[var(--muted)]">
           USDC on {CHAIN.name}
-          {!GAS_SPONSORED && mon !== null ? ` · ${mon} MON for gas` : ""}
+          {!GAS_SPONSORED ? " · gas is paid from this" : ""}
         </span>
       </div>
 

@@ -13,11 +13,11 @@ import { cn } from "@/lib/utils";
 
 const SCENE_MS = 2900;
 const CHAPTERS = [
-  { kicker: "Sign in", caption: "Sign in with X. Privy makes your wallet in a second." },
+  { kicker: "Sign in", caption: "Sign in. Circle makes your wallet in a second." },
   { kicker: "Draw your spots", caption: "Snap an outfit, a car or a team hoodie. AI cleans it up, you draw the spots." },
-  { kicker: "Brands bid", caption: "Brands bid in one tap. No pop-ups, no gas. Privy signs." },
+  { kicker: "Brands bid", caption: "Brands bid with one tap. Gas is paid in USDC, on Arc." },
   { kicker: "Show up", caption: "Wear it at the event. Post the photo on X." },
-  { kicker: "Get paid", caption: "Everyone gets paid in USDC, straight to their Privy wallet." },
+  { kicker: "Get paid", caption: "Everyone gets paid in USDC, straight to their wallet." },
 ];
 const SURFACE_OF_SCENE = [0, 0, 1, 2, 2] as const;
 const SURFACES = [
@@ -344,7 +344,7 @@ function Wallet({ scene, loop, reduce }: { scene: number; loop: number; reduce: 
         <rect x={WALLET.w - 10} y={32} width={18} height={30} rx={8} fill="#FF5A1F" stroke={INK} strokeWidth={2} />
         <g transform="translate(14 13)">
           <foreignObject width={14} height={14}><Lock size={12} color={CREAM} strokeWidth={2.6} /></foreignObject>
-          <text x={18} y={11} fill={CREAM} fontSize={12} fontWeight={600}>{scene === 4 ? "Privy wallets" : "Privy wallet"}</text>
+          <text x={18} y={11} fill={CREAM} fontSize={12} fontWeight={600}>{scene === 4 ? "USDC wallets" : "USDC wallet"}</text>
         </g>
         <motion.text x={14} y={60} fill={CREAM} fontSize={21} fontWeight={700} fontFamily="var(--font-geist-mono), monospace">{text}</motion.text>
         <text x={14} y={82} fill="#A8A69E" fontSize={11}>USDC · no seed phrase</text>

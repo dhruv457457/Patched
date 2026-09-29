@@ -2,13 +2,14 @@
 
 **Get patched. Get paid.**
 
-Creators sell ad space on things people look at: their outfit at an event, their car for a few weeks, or their team's hoodie at a hackathon. They upload a photo, AI turns it into a clean canvas, and they mark **patches** (logo spots) on it. Brands **bid in USDC** for each patch in its own live auction. The money waits in an on-chain escrow on Monad and is paid to the creator step by step, only after they post proof that they showed up.
+Creators sell ad space on things people look at: their outfit at an event, their car for a few weeks, or their team's hoodie at a hackathon. They upload a photo, AI turns it into a clean canvas, and they mark **patches** (logo spots) on it. Brands **bid in USDC** for each patch in its own live auction. The money waits in an on-chain escrow on **Arc**, Circle's stablecoin chain, and is paid to the creator step by step, only after they post proof that they showed up. Everything is in USDC, gas included.
 
 - Product spec: [docs/SPEC.md](docs/SPEC.md)
 - Contracts: [docs/contracts.md](docs/contracts.md)
 - Design system: [docs/design-system.md](docs/design-system.md)
 - Data model: [docs/data-model.md](docs/data-model.md)
 - Agent guide: [AGENTS.md](AGENTS.md)
+- Arc and Circle plan: [docs/arc-plan.md](docs/arc-plan.md)
 
 ## Surfaces
 
@@ -45,7 +46,7 @@ Creators sell ad space on things people look at: their outfit at an event, their
 - **One-tap rebid.** The outbid toast has a "Bid $X" button that bids the new minimum in one tap.
 - **Verified brand badge.** Link your work email. If its domain matches your website, your bids and patches show "Verified brand".
 - **Brand profile.** Your brand name and logo appear on the patches you lead.
-- **Campaigns.** "Spend up to $300 at Token2049, never more than $40 a spot, until the event ends." A campaign wallet bids across the event for you, cheapest spots first (or prime spots only), and returns what's left at the end. Its rules are a Privy policy you can read in plain words or as JSON.
+- **Campaigns.** "Spend up to $300 at Token2049, never more than $40 a spot, until the event ends." A campaign wallet bids across the event for you, cheapest spots first (or prime spots only), and returns what's left at the end. You see its rules in plain words, and on Arc they move into an on-chain campaign contract anyone can read.
 - **Bids tab.** Spots you lead, spots where you were outbid, your receipts, and resale, on your profile.
 
 ### Live auctions
@@ -93,35 +94,27 @@ Creators sell ad space on things people look at: their outfit at an event, their
 
 ### Behind the scenes
 
-- **Keeper.** A policy-limited Privy server wallet closes auctions when they end, releases payments after the review window, marks no-shows and runs auto-bids. It also runs campaigns. Every send carries an idempotency key, so a retry never acts twice.
+- **Keeper.** A server wallet closes auctions when they end, releases payments after the review window, marks no-shows and runs auto-bids. It also runs campaigns. Every send carries an idempotency key, so a retry never acts twice.
 - **Indexer.** Syncs every contract event into Supabase: bids, patches, receipts, payouts and notifications. It's rate-limited when called from the app.
 - **Server-side AI.** All AI runs on the server through OpenRouter, with the cheapest model that does each job.
 - **Themes and motion.** Light and dark themes. Every animation respects reduced-motion settings.
-- **USDC only.** No banks or fiat anywhere: wallets hold USDC, and a test run on mainnet uses a TestUSD token with a daily faucet.
+- **USDC only.** No banks or fiat anywhere: wallets hold USDC, and on Arc gas is paid in USDC too, so nobody needs a second token.
 
-## How Patched uses Privy
+## How Patched uses Arc and Circle
 
-Privy does much more than sign-in here. Every row is live in the app and links to the code.
+Arc is Circle's L1 for stablecoin finance. Patched is a USDC-native marketplace, so it fits: brands only ever hold dollars.
 
-| Privy feature | What it does in Patched | Code |
+| | What it does in Patched | Status |
 |---|---|---|
-| Sign-in in our own design | The welcome page signs people in with Privy's headless hooks (`useLoginWithOAuth` for X, `useLoginWithEmail` for a code), and Privy's own window is branded with our logo, colour and copy. | [WelcomeView.tsx](apps/web/src/app/welcome/WelcomeView.tsx), [PrivyRuntime.tsx](apps/web/src/components/providers/PrivyRuntime.tsx) |
-| Login with X, email or a wallet + embedded wallets | A brand or creator gets a self-custodial wallet in seconds, with no seed phrase and no extension. People who sign in with MetaMask keep using it; the account's wallet is always the one linked first, in the browser and on the server. The X handle becomes the creator's page. | [PrivyRuntime.tsx](apps/web/src/components/providers/PrivyRuntime.tsx), [api/profile](apps/web/src/app/api/profile/route.ts) |
-| Gas sponsorship | Bids, listings, proofs and disputes cost users no MON on testnet (`sponsor: true`); it's a setting per network. | [useTx.ts](apps/web/src/lib/market/useTx.ts), [useBid.ts](apps/web/src/lib/market/useBid.ts) |
-| Silent typed-data signing | A bid is one USDC permit signature plus one transaction, with no separate approve step. | [useBid.ts](apps/web/src/lib/market/useBid.ts), [permit.ts](apps/web/src/lib/market/permit.ts) |
-| Server wallet + policy (keeper) | A Privy server wallet closes auctions, releases milestone payouts and marks no-shows. Its policy allows only `closeBidding`, `release` and `markFailed` on our market, plus `execute` on the auto-bidder. Anything else is rejected with `policy_violation` (checked by a script). Every send carries an `idempotency_key` keyed to the specific due action (and, for auto-bid, the top bid it's responding to), so a retried keeper tick can't pay or bid twice. | [keeper.ts](apps/web/src/lib/server/keeper.ts), [privy-keeper-add-chain.mjs](apps/web/scripts/privy-keeper-add-chain.mjs), [privy-policy-check.mjs](apps/web/scripts/privy-policy-check.mjs) |
-| Campaign wallets with policies the brand configures | Each campaign gets its own Privy server wallet and its own policy, written from the brand's settings: `bidFor` on our market only for the brand (`bidFor.bidder`), at most the per-spot maximum (`bidFor.amount`), until the end time (`current_unix_timestamp`); `approve` only for the market; `transfer` only back to the brand. The brand sees the same rules in plain words and as JSON. | [campaignPolicy.ts](apps/web/src/lib/market/campaignPolicy.ts), [campaigns.ts](apps/web/src/lib/server/campaigns.ts), [CampaignBuilder.tsx](apps/web/src/app/campaigns/new/CampaignBuilder.tsx) |
-| Auto-bid on the policy-limited server wallet | "Keep me on top up to $X": when a brand is outbid, the keeper bids the next step for them within seconds. The contract caps every bid at the brand's max. | [useAutoBid.ts](apps/web/src/lib/market/useAutoBid.ts), [PatchAutoBidder.sol](contracts/src/PatchAutoBidder.sol) |
-| One signature, sponsored gas: sweep | Our `PatchSweeper` contract places several bids at once; Privy signs the single permit and sponsors the gas, so bidding on many patches is one click. | [SweepPanel.tsx](apps/web/src/components/market/SweepPanel.tsx), [PatchSweeper.sol](contracts/src/PatchSweeper.sol) |
-| Passkey MFA step-up | Bids, sweeps and auto-bid maximums over a threshold ask for a passkey (Face ID, Touch ID, Windows Hello) first. | [stepUp.ts](apps/web/src/lib/market/stepUp.ts), [AccountMenu.tsx](apps/web/src/components/navigation/AccountMenu.tsx) |
-| Linked accounts: verified brands | A brand links a work email (Privy one-time code). If the domain matches its website, its patches show "Verified brand". This stops impersonation. | [BrandVerify.tsx](apps/web/src/components/market/BrandVerify.tsx), [verify-brand route](apps/web/src/app/api/profile/verify-brand/route.ts) |
-| Wallet export | "Your wallet is yours": export the embedded wallet's key to any wallet. | [AccountMenu.tsx](apps/web/src/components/navigation/AccountMenu.tsx) |
-| Server-side auth | Every API route verifies the Privy access token (JWKS) and reads the user's wallet and verified emails from Privy's API, never from the browser. | [auth.ts](apps/web/src/lib/server/auth.ts) |
+| **USDC as gas (Arc)** | Brands and creators hold one token. Bids, escrow, payouts and gas are all USDC. | Contracts: deploying next. |
+| **Instant finality (Arc)** | A bid is final in under a second, so live auctions, outbid refunds and the anti-snipe clock feel instant. | With the contracts. |
+| **Circle Modular Wallets** | A passkey wallet made at sign-in. A bid is one passkey tap: `approve` + `bid` batched into one user operation. | Replacing the current wallets. |
+| **Circle Gas Station** | Sponsors gas for user wallets, so a new brand can bid with exactly the USDC they brought. | With the wallets. |
+| **Circle developer-controlled wallets** | The keeper that closes auctions, releases milestone payouts and runs auto-bids. Every request carries Circle's required idempotency key, and states arrive by webhook. | Replacing the current keeper wallet. |
+| **Campaign rules on-chain** | A brand's campaign budget sits in a `PatchCampaign` contract that enforces the brand as bidder, a per-spot maximum, an end time and the total budget. Anyone can read the rules. | To build. |
+| **Gateway / CCTP** | "Fund your bids from any chain": bring USDC from Base, Ethereum or Arbitrum into one balance on Arc. | Planned. |
 
-Not used, and why:
-- **Funding (card or bank on-ramps)** is left out on purpose: Patched has no banks or fiat, and wallets hold USDC only.
-- **Session signers** aren't enabled on our Privy app, so auto-bid runs on the policy-limited server wallet instead.
-- **Transaction webhooks** need Privy's Enterprise plan, so notifications come from our own indexer and Supabase Realtime.
+The full feature-by-feature plan, Arc's USDC quirks (6 vs 18 decimals, the permit domain) and the timeline are in [docs/arc-plan.md](docs/arc-plan.md).
 
 ## Contracts
 
@@ -133,26 +126,18 @@ Not used, and why:
 | `PatchSweeper` | Bids on several patches in one transaction, all or nothing |
 | `TestUSD` | A USDC-style test token with permit and a daily faucet, for the mainnet test run |
 
-| Contract | Monad testnet | Monad mainnet (TestUSD run) |
-|---|---|---|
-| PatchedMarket | `0xd3808dE425493934f036f8E77ef5a4de332e9552` | `0xcBE6fA620fc6F61192a94CFbd33aae7893579a56` |
-| PatchReceipt (NFT) | `0x598Ea7C3Cf739Dbea1B809d5Cd0174818b680a8f` | `0x18Cb49292c1562932a1EdcC6674a30Fd71b27F97` |
-| PatchAutoBidder | `0x6388BDAc2b256Df65CF0f29DFd946Fa2479f32DA` | `0x0e59Ab0DE6b61874B6aA728806433c2eB3D362C1` |
-| PatchSweeper | `0x65f0e25e5D503FCc5549624D6f9B138b17A3054f` | `0x1fe99eb81EDF35699c3FA6BE3cb5D6749084A9ba` |
-| TestUSD (faucet token) | – | `0xB0fabbBc9a26dC78b200a36b2344cAc2518D0e3f` |
-
-All verified on Sourcify. Testnet uses Monad's native USDC. Details: [docs/contracts.md](docs/contracts.md).
+Deployments on Arc testnet (5042002) and Arc mainnet (5042) are listed in [docs/contracts.md](docs/contracts.md) once they're live. `PatchedMarket` runs behind an upgradeable (UUPS) proxy, so its address and data stay put across upgrades.
 
 ## Tech stack
 
 - **Contracts:** Solidity 0.8.28, Foundry, OpenZeppelin v5.4, with unit, fuzz and invariant tests.
-- **Web:** Next.js (App Router), React 19, Tailwind CSS v4, Motion, NumberFlow, viem, Privy.
+- **Web:** Next.js (App Router), React 19, Tailwind CSS v4, Motion, NumberFlow, Three.js, viem, Circle wallets.
 - **Data:** Supabase (Postgres, Storage, Realtime), with our own indexer in `packages/indexer`.
 - **AI:** OpenRouter, through `packages/ai`.
-- **Chain:** Monad testnet (10143) and Monad mainnet (143). Chain values live in config.
+- **Chain:** Arc testnet (5042002) and Arc mainnet (5042). USDC at `0x3600000000000000000000000000000000000000` on both. Chain values live in config.
 
 ```
-brandboard/
+Patched/
 ├─ contracts/         Foundry contracts and tests
 ├─ packages/shared/   ABIs, types, chain config and addresses
 ├─ packages/ai/       OpenRouter client and prompts
@@ -170,9 +155,9 @@ Chrome installed on the machine, on a laptop size and a phone size:
   images, every button and link has a name, and nothing crashes or logs an error. Every internal link on the main
   pages opens. Each page is also saved as a screenshot in `apps/web/e2e/screens/` for a visual review.
 - **What people click** ([flows.spec.ts](apps/web/e2e/flows.spec.ts)): sign-in, the app's navigation, the Studio
-  deal, the campaign builder and its Privy policy, a listing, an event, Explore search and profile tabs.
+  deal, the campaign builder, a listing, an event, Explore search and profile tabs.
 - **Signed in** ([signed-in.spec.ts](apps/web/e2e/signed-in.spec.ts)): runs when `E2E_TEST_EMAIL` and
-  `E2E_TEST_CODE` hold a Privy test account.
+  `E2E_TEST_CODE` hold a test account.
 
 The report is in `apps/web/e2e/report/` (`npx playwright show-report e2e/report` from `apps/web`).
 
@@ -183,6 +168,6 @@ pnpm install
 pnpm contracts:setup
 pnpm contracts:test
 cp .env.example .env.local   # then fill in the values
-pnpm web:dev                 # the app on Monad testnet
-pnpm web:dev:mainnet         # the app on Monad mainnet, http://localhost:3200
+pnpm web:dev                 # the app on Arc testnet
+pnpm web:dev:mainnet         # the app on Arc mainnet, http://localhost:3200
 ```

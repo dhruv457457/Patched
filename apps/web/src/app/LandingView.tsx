@@ -14,11 +14,10 @@ import {
 } from "motion/react";
 import NumberFlow from "@number-flow/react";
 import { EASE, Reveal } from "@/components/ui/Reveal";
-import { MonadLogo, MonadMark, PrivyLogo } from "@/components/brand/PartnerLogos";
+import { ArcLogo, ArcMark, CircleLogo } from "@/components/brand/PartnerLogos";
 import { PoweredBy } from "@/components/brand/PoweredBy";
 import { StoryPanel } from "@/components/brand/StoryPanel";
 import type { SceneKind, SceneLogo } from "@/components/brand/PatchScene";
-import { MONAD_MARK_SVG, MONAD_WORDMARK_SVG, PRIVY_WORDMARK_SVG, svgUrl } from "@/components/brand/partnerSvg";
 import {
   ArrowRight,
   BadgeCheck,
@@ -29,7 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
-import { CHAIN_ID } from "@/lib/config";
+import { IS_TESTNET } from "@/lib/config";
 import { formatCountdown } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +45,7 @@ export interface LandingData {
   stats: { liveListings: number; escrowedUsd: number; bids: number };
   /** Recent bids, newest first. */
   ticker: TickerItem[];
-  /** Logos real sponsors uploaded on Patched, shown on the hero's 3D patches next to Monad and Privy. */
+  /** Logos real sponsors uploaded on Patched, shown on the hero's 3D patches. */
   brandLogos: string[];
 }
 
@@ -137,10 +136,8 @@ function HeroScene({ featured, ticker, brandLogos }: Pick<LandingData, "featured
   }, [ticker.length]);
 
   const bid = ticker[bidIdx];
-  const logos = useMemo<SceneLogo[]>(
-    () => [...brandLogos.map((src) => ({ src })), { src: svgUrl(MONAD_WORDMARK_SVG), mark: svgUrl(MONAD_MARK_SVG) }, { src: svgUrl(PRIVY_WORDMARK_SVG) }],
-    [brandLogos],
-  );
+  // Real sponsors' logos only; the rest of the patches read YOUR LOGO.
+  const logos = useMemo<SceneLogo[]>(() => brandLogos.map((src) => ({ src })), [brandLogos]);
 
   return (
     <motion.div
@@ -278,8 +275,8 @@ function Hero({ featured, ticker, stats, brandLogos }: Pick<LandingData, "featur
               transition={{ duration: 0.5, ease: EASE }}
               className="inline-flex items-center gap-2 text-xs font-semibold border-[1.5px] border-[var(--line)] rounded-full px-3 py-1 bg-[var(--card)]"
             >
-              <MonadMark size={14} className="flex-none" />
-              {CHAIN_ID === 143 ? "Live on Monad" : "On Monad testnet"} · Paid in stablecoins
+              <ArcMark size={14} className="flex-none" />
+              {IS_TESTNET ? "On Arc testnet" : "Live on Arc"} · Paid in USDC
             </motion.span>
 
             <h1 className="text-[3.2rem] sm:text-7xl lg:text-[5.4rem] font-extrabold tracking-tight mt-6 leading-[0.95]">
@@ -433,7 +430,7 @@ function Escrow() {
 
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-8 py-24">
-      <SectionHead eyebrow="Your money" title="Nobody has to trust anybody." sub="Brands pay in USDC, a stablecoin worth one dollar. It waits in a contract on Monad and moves only when the proof does." />
+      <SectionHead eyebrow="Your money" title="Nobody has to trust anybody." sub="Brands pay in USDC, a stablecoin worth one dollar. It waits in a contract on Arc and moves only when the proof does." />
       <div ref={ref} className="relative mt-14">
         {/* Progress rail: horizontal on desktop, vertical on mobile */}
         <div aria-hidden="true" className="absolute hidden lg:block left-[12.5%] right-[12.5%] top-[27px] h-[3px] rounded-full bg-[var(--soft)]">
@@ -505,7 +502,7 @@ function Footer() {
         <span className="hidden sm:inline">Get patched. Get paid.</span>
       </div>
       <span className="flex items-center gap-2">
-        Built on <MonadLogo height={15} /> with <PrivyLogo height={15} />
+        Built on <ArcLogo height={15} /> with <CircleLogo height={15} />
       </span>
     </footer>
   );

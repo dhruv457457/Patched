@@ -19,7 +19,7 @@ import {
 } from "@privy-io/react-auth";
 import { useUpdateEmail } from "@privy-io/react-auth/ui";
 import { getAddress } from "viem";
-import { monadMainnet, monadTestnet } from "@patched/shared";
+import { arcMainnet, arcTestnet } from "@patched/shared";
 import { CHAIN, CHAIN_ID } from "@/lib/config";
 import { walletClientType, type InjectedWallet } from "@/lib/injectedWallets";
 import { takePendingLogin, type AuthContextValue } from "./PrivyAuthProvider";
@@ -170,7 +170,7 @@ export default function PrivyRuntime({ onChange }: { onChange: (v: AuthContextVa
           showWalletUIs: false,
         },
         defaultChain: CHAIN,
-        supportedChains: [monadTestnet, monadMainnet],
+        supportedChains: [arcTestnet, arcMainnet],
       }}
     >
       <Bridge onChange={onChange} />

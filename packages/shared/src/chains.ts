@@ -1,26 +1,30 @@
 import { defineChain } from "viem";
 
-export const monadTestnet = defineChain({
-  id: 10143,
-  name: "Monad Testnet",
-  nativeCurrency: { name: "Monad", symbol: "MON", decimals: 18 },
-  rpcUrls: { default: { http: ["https://testnet-rpc.monad.xyz"] } },
-  blockExplorers: { default: { name: "Monad Explorer", url: "https://testnet.monadexplorer.com" } },
+/**
+ * Arc (Circle's L1). Gas is paid in USDC: the native balance is USDC with 18 decimals, and the same money is the
+ * USDC ERC-20 at 0x3600...0000 with 6 decimals. Our contracts only use the ERC-20 side (6 decimals).
+ */
+export const arcTestnet = defineChain({
+  id: 5042002,
+  name: "Arc Testnet",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.testnet.arc.io"] } },
+  blockExplorers: { default: { name: "Arc Explorer", url: "https://explorer.testnet.arc.io" } },
   testnet: true,
 });
 
-export const monadMainnet = defineChain({
-  id: 143,
-  name: "Monad",
-  nativeCurrency: { name: "Monad", symbol: "MON", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.monad.xyz"] } },
-  blockExplorers: { default: { name: "MonadVision", url: "https://monadvision.com" } },
+export const arcMainnet = defineChain({
+  id: 5042,
+  name: "Arc",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.mainnet.arc.io"] } },
+  blockExplorers: { default: { name: "Arc Explorer", url: "https://explorer.arc.io" } },
 });
 
-/** Native Circle USDC per chain (6 decimals). */
+/** Circle USDC per chain (the ERC-20 interface, 6 decimals). The same address on Arc mainnet and testnet. */
 export const USDC: Record<number, `0x${string}`> = {
-  10143: "0x534b2f3A21130d7a60830c2Df862319e593943A3",
-  143: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+  5042002: "0x3600000000000000000000000000000000000000",
+  5042: "0x3600000000000000000000000000000000000000",
 };
 
 export const USDC_DECIMALS = 6;

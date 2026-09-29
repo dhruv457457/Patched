@@ -8,7 +8,7 @@ import { ContactShadows, Environment, Float, Lightformer, Line, RoundedBox } fro
 /**
  * The landing page's 3D hero: an outfit, a vehicle and a team hoodie take turns in the middle, and pastel patches
  * with brand logos and prices fly in and stick to each one. The objects are drawn in code as soft, inflated shapes
- * (no models to download). Logos are real: sponsors' own logos from Patched, plus Monad and Privy. Prices are
+ * (no models to download). Logos are real sponsors' own, from Patched; the other patches read YOUR LOGO. Prices are
  * examples.
  */
 

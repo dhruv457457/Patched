@@ -1,6 +1,6 @@
 /**
  * Utilities for formatting currency, time, addresses, and countdowns.
- * USDC uses 6 decimals on Monad (1 USDC = 1_000_000 units).
+ * USDC uses 6 decimals through its ERC-20 interface on Arc (1 USDC = 1_000_000 units).
  */
 
 export function formatUsdc(amount: bigint | number | undefined | null): string {

@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { RESERVED_HANDLES } from "@/lib/handles";
 
 /**
- * Creator subdomains: `dhruv.monad.patched.world` shows Dhruv's page and `dhruv.monad.patched.world/6` his listing 6,
- * and the address stays that way. The base domain comes from HANDLE_DOMAIN (e.g. "monad.patched.world"); without it
+ * Creator subdomains: `dhruv.arc.patched.world` shows Dhruv's page and `dhruv.arc.patched.world/6` his listing 6,
+ * and the address stays that way. The base domain comes from HANDLE_DOMAIN (e.g. "arc.patched.world"); without it
  * this does nothing.
  * - Links inside the page carry the handle (/dhruv/6): they go to the short form (/6).
  * - Another creator's page (/maya, /maya/3) goes to their own subdomain.

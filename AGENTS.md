@@ -24,16 +24,14 @@ Full product spec: [docs/SPEC.md](docs/SPEC.md). Contract API: [docs/contracts.m
 
 ## Hackathon context
 
-- **Monad hackathon (Metropolis)** — deadline **Oct 14 2026, 09:29 IST**. Track: *Social, Attention & Culture*. Judging: technical execution 20%, design & craft 20%, originality 15%, founder/market readiness 25%, traction 20%.
-- Sponsor bounties we are targeting (each must be visibly used in the demo):
-  - **Privy (main target)** — must be used *beyond login*: embedded wallets, gas sponsorship, one-signature permit bids, server wallets + policies (the keeper and auto-bid through `PatchAutoBidder`), plus sweep, passkey step-up, verified brands and wallet export (planned). Session signers are not enabled on our Privy app, so auto-bid does not use them.
-- Not used: Aurora Intents, Hunyuan, Kimi, Envio, Chainlink CRE, Dynamic, Mera wallets.
-- Later: a mirrored repo for **Arc (Circle) Microgrants** on Arc mainnet. Keep chain-specific values in config, never hard-coded.
+- **Arc Microgrants (Circle, on DoraHacks)** — submissions close **Oct 14 2026, 23:59 ET**, reviews are rolling. Needs a **live deployment on Arc mainnet**, a public repo, a clear description of what Arc is used for, and a public builder profile. Judged on relevance to Arc, technical credibility, build quality and whether it's worth taking further.
+- This repo is the **Arc build** of Patched: Arc mainnet and testnet, Circle wallets, USDC as gas. The plan, feature by feature, is [docs/arc-plan.md](docs/arc-plan.md).
+- Keep chain-specific values in config (`packages/shared`), never hard-coded.
 
 ## Repo layout and ownership
 
 ```
-brandboard/
+Patched/
 ├─ AGENTS.md            ← this file (CLAUDE.md imports it)
 ├─ docs/                ← specs; any agent may propose edits, keep them in sync with code
 ├─ contracts/           ← Foundry. OWNER: Claude
@@ -52,8 +50,8 @@ Rules:
 
 - pnpm workspaces, Node 22, TypeScript strict everywhere.
 - Contracts: Solidity 0.8.28, Foundry, OpenZeppelin v5.4.
-- Web: Next.js (App Router) + React 19, Tailwind CSS v4, `motion` (motion.dev), `@number-flow/react`, `react-konva`, `sonner`, `lucide-react` icons, `viem`, `@privy-io/react-auth`, TanStack Query, Supabase JS (reads + Realtime).
-- Chain: Monad testnet first (chain id 10143), native USDC `0x534b2f3A21130d7a60830c2Df862319e593943A3` (6 decimals). RPC via QuickNode (`MONAD_TESTNET_RPC_URL`).
+- Web: Next.js (App Router) + React 19, Tailwind CSS v4, `motion` (motion.dev), `@number-flow/react`, `react-konva`, `sonner`, `lucide-react` icons, `viem`, Circle wallets (replacing `@privy-io/react-auth`), Supabase JS (reads + Realtime).
+- Chain: Arc testnet (5042002) and mainnet (5042). USDC `0x3600000000000000000000000000000000000000`: 6 decimals through the ERC-20 interface, 18 as the native gas balance (the same money). RPC in `ARC_TESTNET_RPC_URL` / `ARC_RPC_URL`.
 - AI: **OpenRouter only**, through `packages/ai` (owned by Claude), using the cheapest model that does each job (models set by env vars). Called only from server routes, never from the browser.
 
 ## Conventions
@@ -73,7 +71,7 @@ Rules:
 pnpm install                 # workspace deps
 pnpm contracts:setup         # install Foundry libs (lib/ is not committed)
 pnpm contracts:test          # forge test
-pnpm web:dev                 # Next.js dev server (testnet, chain from NEXT_PUBLIC_CHAIN_ID)
-pnpm web:dev:mainnet         # same app on Monad mainnet, port 3200
-pnpm indexer -- --chain 143  # sync mainnet events into Supabase
+pnpm web:dev                  # Next.js dev server (Arc testnet, chain from NEXT_PUBLIC_CHAIN_ID)
+pnpm web:dev:mainnet          # same app on Arc mainnet, port 3200
+pnpm indexer -- --chain 5042  # sync Arc mainnet events into Supabase
 ```

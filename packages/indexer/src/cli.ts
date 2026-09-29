@@ -1,4 +1,4 @@
-// Local indexer: `pnpm indexer` (testnet) or `pnpm indexer -- --chain 143`. Add `--watch` to keep polling.
+// Local indexer: `pnpm indexer` (Arc testnet) or `pnpm indexer -- --chain 5042` (Arc mainnet). Add `--watch` to keep polling.
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,9 +12,9 @@ for (const line of readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/)
 }
 
 const argv = process.argv.slice(2);
-const chainId = Number(argv[argv.indexOf("--chain") + 1] || 10143) as IndexedChainId;
+const chainId = Number(argv[argv.indexOf("--chain") + 1] || 5042002) as IndexedChainId;
 const watch = argv.includes("--watch");
-const rpcUrl = chainId === 143 ? process.env.MONAD_MAINNET_RPC_URL! : process.env.MONAD_TESTNET_RPC_URL!;
+const rpcUrl = chainId === 5042 ? process.env.ARC_RPC_URL! : process.env.ARC_TESTNET_RPC_URL!;
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false, onnotice: () => {} });
 
 try {

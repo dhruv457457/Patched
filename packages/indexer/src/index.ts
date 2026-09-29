@@ -6,9 +6,9 @@
 // always safe (all writes are idempotent).
 import { createPublicClient, decodeEventLog, hexToString, http, type Log, type PublicClient } from "viem";
 import type { Sql } from "postgres";
-import { DEPLOYMENTS, monadMainnet, monadTestnet, patchAutoBidderAbi, patchedMarketAbi } from "@patched/shared";
+import { arcMainnet, arcTestnet, DEPLOYMENTS, patchAutoBidderAbi, patchedMarketAbi } from "@patched/shared";
 
-const CHAINS = { 10143: monadTestnet, 143: monadMainnet } as const;
+const CHAINS = { 5042002: arcTestnet, 5042: arcMainnet } as const;
 export type IndexedChainId = keyof typeof CHAINS;
 
 const MAX_RANGE = 1000n; // Monad RPC limit for eth_getLogs

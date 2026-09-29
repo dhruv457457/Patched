@@ -1,9 +1,9 @@
 import React, { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { MonadMark } from "@/components/brand/PartnerLogos";
+import { ArcMark } from "@/components/brand/PartnerLogos";
 
 export interface ChipProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: "default" | "monad" | "green" | "orange";
+  variant?: "default" | "arc" | "green" | "orange";
 }
 
 export function Chip({
@@ -22,7 +22,7 @@ export function Chip({
       )}
       {...props}
     >
-      {variant === "monad" && <MonadMark size={12} className="flex-none" />}
+      {variant === "arc" && <ArcMark size={12} className="flex-none" />}
       {children}
     </span>
   );

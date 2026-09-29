@@ -185,14 +185,7 @@ Holds no funds; bids, receipts and refunds belong to the caller. Deployed with `
 
 ## Deployments
 
-Addresses live in `packages/shared/src/addresses.ts` (`DEPLOYMENTS[chainId]`). All verified on Sourcify (exact match).
-
-PatchAutoBidder: testnet `0x6388BDAc2b256Df65CF0f29DFd946Fa2479f32DA` (block 65221700), mainnet `0x0e59Ab0DE6b61874B6aA728806433c2eB3D362C1` (block 107531645, for the TestUSD market). Deployed with `script/DeployAutoBidder.s.sol`.
-
-| Network | PatchedMarket | PatchReceipt | Deploy block | Notes |
+| Network | PatchedMarket (proxy) | PatchReceipt | Deploy block | Notes |
 |---|---|---|---|---|
-| Monad testnet (10143) | `0x2AaC6f2E5221078982736F33271CD6484d0cd005` (UUPS proxy) | `0xC4Abf876Ef2A6FF1A324F4916c330fe01efAeD4e` | 66627600 | v3: upgradeable proxy, `approveProof`, adjustable review window. Auto-bidder `0x67dE9d8CCB7A79FF57cCf117D73135724c46Cf2c`, sweeper `0x1c9F3029E4a7Bf86B4E3D7fC64C471E7DBF7cF6B`. Demo params: bond $1, min step $1, review 2 min, anti-snipe 1 min. Event #1 (Token2049 Demo). Previous v2 (not a proxy): `0xd3808dE425493934f036f8E77ef5a4de332e9552`. |
-| Monad mainnet (143), **active** | `0xcBE6fA620fc6F61192a94CFbd33aae7893579a56` | `0x18Cb49292c1562932a1EdcC6674a30Fd71b27F97` | 107528109 | Test run on **TestUSD** (`0xB0fabbBc9a26dC78b200a36b2344cAc2518D0e3f`, tUSD, 6 decimals, `faucet()` gives 1,000 per wallet per day). Params: bond $1, min step $1, cap $1000. Deployed with `script/DeployTestUSD.s.sol`. |
-| Monad mainnet (143), real USDC, parked | `0xCB44d40E69Dc267e9C7CF65d89f22857e3d82aed` | `0xa6e439a22aad8fc7f596a92B5900D7b8724A01F5` | 107361531 | Real USDC. Params: bond $5, min step $1, new creators capped at $200. Switch back by restoring it in `addresses.ts` (or redeploy with `Deploy.s.sol` if the contract changed). |
-
-The old testnet v1 (`0xCB44…2aed` on 10143) is retired. It has the same address as mainnet because both were the deployer's first transaction on a fresh chain — always pick the address by chain id.
+| Arc testnet (5042002) | – | – | – | Next: deploy with `forge script script/Deploy.s.sol --rpc-url arc_testnet --broadcast` |
+| Arc mainnet (5042) | – | – | – | After testnet. USDC `0x3600000000000000000000000000000000000000` |

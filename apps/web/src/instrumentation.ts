@@ -8,7 +8,7 @@ export async function register() {
   // Serverless hosts (Vercel) freeze the process between requests, so a timer can't run there: production is
   // ticked by the Supabase cron job instead (migration 0013).
   if (process.env.VERCEL) return;
-  const testnet = (process.env.NEXT_PUBLIC_CHAIN_ID ?? "10143") === "10143";
+  const testnet = (process.env.NEXT_PUBLIC_CHAIN_ID ?? "5042002") === "5042002";
   const setting = process.env.KEEPER_AUTORUN;
   if (setting === "false" || (!testnet && setting !== "true")) return;
 

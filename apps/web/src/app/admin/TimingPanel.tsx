@@ -6,7 +6,7 @@ import { patchedMarketAbi } from "@patched/shared";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/Toast";
-import { CHAIN_ID, DEPLOYMENT, MARKET, publicClient } from "@/lib/config";
+import { DEPLOYMENT, IS_TESTNET, MARKET, publicClient } from "@/lib/config";
 import { friendlyError } from "@/lib/market/useBid";
 import { useTx } from "@/lib/market/useTx";
 
@@ -83,7 +83,7 @@ export function TimingPanel({ onDone }: { onDone?: () => void }) {
 
   if (!p) return null;
   const canLower = !!DEPLOYMENT.approvals; // older markets keep the one-hour floor
-  const testnet = CHAIN_ID === 10143;
+  const testnet = IS_TESTNET;
   const reviewSec = Math.round(Number(review) * 60);
   const snipeSec = Math.round(Number(snipe) * 60);
   const floor = testnet && canLower ? 60 : p.minDisputeWindow;

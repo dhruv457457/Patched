@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { Check } from "lucide-react";
-import { DEPLOYMENTS } from "@patched/shared";
 import { CHAIN_ID, NETWORK_SITES } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
@@ -16,22 +15,22 @@ function samePageOn(path: string): string {
   return path;
 }
 
-export function networkUrl(chain: 10143 | 143, path: string) {
+export function networkUrl(chain: 5042002 | 5042, path: string) {
   return `${NETWORK_SITES[chain].url.replace(/\/$/, "")}${samePageOn(path)}`;
 }
 
-const DOT = { 10143: "bg-[#F5B400]", 143: "bg-[var(--green)]" } as const;
+const DOT = { 5042002: "bg-[#F5B400]", 5042: "bg-[var(--green)]" } as const;
 
 /** The two networks as a list; used by the account menu and Settings. */
 export function NetworkOptions({ onPick }: { onPick?: () => void }) {
   const pathname = usePathname();
   const notes = {
-    10143: "Monad testnet with test USDC. Try everything for free.",
-    143: DEPLOYMENTS[143]?.testToken ? "Monad mainnet, test run with the TestUSD token." : "Monad mainnet with real USDC.",
+    5042002: "Arc testnet with test USDC from the Circle faucet. Try everything for free.",
+    5042: "Arc mainnet with real USDC. Gas is paid in USDC too.",
   } as const;
   return (
     <ul className="grid gap-1">
-      {([10143, 143] as const).map((chain) => {
+      {([5042002, 5042] as const).map((chain) => {
         const active = chain === CHAIN_ID;
         return (
           <li key={chain}>

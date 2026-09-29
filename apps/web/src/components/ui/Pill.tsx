@@ -22,7 +22,7 @@ export function Pill({
         "inline-flex items-center gap-1 text-xs font-bold rounded-full px-2.5 py-0.5 border-[1.5px] whitespace-nowrap select-none",
         normVariant === "top" && "bg-[var(--green-soft)] border-[var(--green)] text-[var(--green)]",
         normVariant === "out" && "bg-[var(--accent-soft)] border-[var(--accent)] text-[var(--accent-text)]",
-        normVariant === "won" && "bg-[var(--soft)] border-[var(--monad)] text-[var(--ink)]",
+        normVariant === "won" && "bg-[var(--soft)] border-[var(--won-line)] text-[var(--ink)]",
         normVariant === "wait" && "bg-[var(--soft)] border-[var(--muted)] text-[var(--muted)]",
         className
       )}

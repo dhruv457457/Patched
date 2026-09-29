@@ -181,11 +181,11 @@ export function BidsView({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
-  /** Wallets are funded with USDC only: copy the address to send USDC on Monad from another wallet or exchange. */
+  /** Wallets are funded with USDC only: copy the address to send USDC on Arc from another wallet or exchange. */
   function copyAddress() {
     if (!walletAddress) return;
     navigator.clipboard.writeText(walletAddress)
-      .then(() => toast("Wallet address copied. Send USDC on Monad to it."))
+      .then(() => toast("Wallet address copied. Send USDC on Arc to it."))
       .catch(() => toast(walletAddress));
   }
 

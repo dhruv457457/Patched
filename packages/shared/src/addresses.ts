@@ -18,5 +18,17 @@ export interface PatchedDeployment {
 }
 
 export const DEPLOYMENTS: Record<number, PatchedDeployment | undefined> = {
-  // Arc testnet (5042002) and Arc mainnet (5042): filled in after contracts/script/Deploy.s.sol runs on each.
+  // Arc testnet, deployed 2026-09-29. `market` is an upgradeable (UUPS) proxy: the address stays across upgrades.
+  // Implementation 0x42CdD8D8c043fFd59e6BBfBB21eE46d57ace4c2B, linked PayeesLib 0x235b0ac9fb93ee4ee91f538c96f8c76407002f97.
+  5042002: {
+    market: "0x229241c26A49427981AD96A3DF61C00f1CD47869",
+    receipt: "0x746F5A4b69db3363A06C17E4D669b0DD26FaA54e",
+    usdc: "0x3600000000000000000000000000000000000000",
+    deployBlock: 64587940,
+    autoBidder: "0x8E150895a6269D9701974fCfB1d6307dC28B8488",
+    autoBidderBlock: 64588026,
+    sweeper: "0xf0EEb561b1Fcf475FaCdFf00229a0fE363815aBB",
+    approvals: true,
+  },
+  // Arc mainnet (5042): after the testnet run.
 };

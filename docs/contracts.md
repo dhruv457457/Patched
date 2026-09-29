@@ -183,9 +183,15 @@ Holds no funds; bids, receipts and refunds belong to the caller. Deployed with `
 
 `PatchedMarket` runs behind an ERC-1967 (UUPS) proxy. The proxy address is the market address everyone uses and it never changes; an upgrade swaps the logic only, so listings, escrowed money and the receipts stay. Only the default admin can call `upgradeToAndCall`, and `freezeUpgrades()` turns upgrades off permanently (do this before real money, or put the admin behind a multisig and timelock). Rules for changing the contract: append new state variables at the end only, never reorder or remove any, keep defaults in `initialize`, and add a test that upgrades and checks the old data.
 
+## Arc notes
+
+- **Size limit:** Arc enforces the standard 24,576-byte limit (`CreateContractSizeLimit`). The market fits by linking `PayeesLib` and compiling with `optimizer_runs = 1`.
+- **Scripts that touch USDC can't be simulated by plain Foundry:** Arc's USDC calls Arc-specific system code, so `forge script` fails locally with `StackUnderflow` on anything that moves USDC. Deploys work (they don't touch USDC); for the rest send with `cast send`, which the Arc node estimates itself, or use Circle's Arc Foundry.
+- **Verification:** `forge verify-contract <addr> <path:Name> --verifier blockscout --verifier-url https://explorer.testnet.arc.io/api/ --chain-id 5042002` (add `--libraries src/PayeesLib.sol:PayeesLib:<addr>` for the market, `--skip-is-verified-check` if the explorer's pre-check fails).
+
 ## Deployments
 
 | Network | PatchedMarket (proxy) | PatchReceipt | Deploy block | Notes |
 |---|---|---|---|---|
-| Arc testnet (5042002) | – | – | – | Next: deploy with `forge script script/Deploy.s.sol --rpc-url arc_testnet --broadcast` |
+| Arc testnet (5042002) | `0x229241c26A49427981AD96A3DF61C00f1CD47869` (UUPS proxy) | `0x746F5A4b69db3363A06C17E4D669b0DD26FaA54e` | 64587940 | Implementation `0x42CdD8D8c043fFd59e6BBfBB21eE46d57ace4c2B`, PayeesLib `0x235b0ac9fb93ee4ee91f538c96f8c76407002f97`, auto-bidder `0x8E150895a6269D9701974fCfB1d6307dC28B8488`, sweeper `0xf0EEb561b1Fcf475FaCdFf00229a0fE363815aBB`. Verified on explorer.testnet.arc.io (market, proxy, receipt, library). Demo params: bond $1, review 2 min, anti-snipe 1 min. Tested on-chain: bid, instant outbid refund, close, receipt NFT, proof, brand approval, payout. |
 | Arc mainnet (5042) | – | – | – | After testnet. USDC `0x3600000000000000000000000000000000000000` |

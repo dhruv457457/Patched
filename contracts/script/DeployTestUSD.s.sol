@@ -7,6 +7,7 @@ import {PatchedMarket} from "../src/PatchedMarket.sol";
 import {PatchReceipt} from "../src/PatchReceipt.sol";
 import {TestUSD} from "../src/TestUSD.sol";
 import {IPatchReceipt} from "../src/interfaces/IPatchReceipt.sol";
+import {MarketFactory} from "./MarketFactory.sol";
 
 /// @notice Mainnet test run: deploys TestUSD, PatchReceipt and a PatchedMarket that uses TestUSD instead of
 ///         USDC, with testing-friendly limits. Swap to real USDC later with Deploy.s.sol.
@@ -22,7 +23,7 @@ contract DeployTestUSD is Script {
         vm.startBroadcast(pk);
         token = new TestUSD();
         receipt = new PatchReceipt();
-        market = new PatchedMarket(IERC20(address(token)), IPatchReceipt(address(receipt)), deployer, deployer);
+        (market,) = MarketFactory.deploy(IERC20(address(token)), IPatchReceipt(address(receipt)), deployer, deployer);
         receipt.setMarket(market);
         // fee 5%, royalty 5%, step +5% or +$1, bond $1, new-creator cap $1000, 5 min anti-snipe,
         // 1 day max extension, 72 h dispute window.

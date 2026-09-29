@@ -7,6 +7,7 @@ import {PatchedMarket} from "../src/PatchedMarket.sol";
 import {PatchReceipt} from "../src/PatchReceipt.sol";
 import {IPatchReceipt} from "../src/interfaces/IPatchReceipt.sol";
 import {MockUSDC} from "./mocks/MockUSDC.sol";
+import {MarketFactory} from "../script/MarketFactory.sol";
 
 abstract contract BaseTest is Test {
     MockUSDC internal usdc;
@@ -29,7 +30,7 @@ abstract contract BaseTest is Test {
         vm.warp(1_800_000_000);
         usdc = new MockUSDC();
         receipt = new PatchReceipt();
-        market = new PatchedMarket(IERC20(address(usdc)), IPatchReceipt(address(receipt)), admin, treasury);
+        (market,) = MarketFactory.deploy(IERC20(address(usdc)), IPatchReceipt(address(receipt)), admin, treasury);
         receipt.setMarket(market);
         biddingEnd = uint40(block.timestamp + 2 days);
         // most tests use a seasoned creator; the cap itself is tested explicitly

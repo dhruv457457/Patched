@@ -8,6 +8,7 @@ import {PatchedMarket} from "../../src/PatchedMarket.sol";
 import {PatchReceipt} from "../../src/PatchReceipt.sol";
 import {IPatchReceipt} from "../../src/interfaces/IPatchReceipt.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
+import {MarketFactory} from "../../script/MarketFactory.sol";
 
 /// @dev Drives the market through random sequences of every user-facing action.
 contract Handler is Test {
@@ -175,7 +176,7 @@ contract SolvencyInvariantTest is StdInvariant, Test {
         vm.warp(1_800_000_000);
         usdc = new MockUSDC();
         PatchReceipt receipt = new PatchReceipt();
-        market = new PatchedMarket(IERC20(address(usdc)), IPatchReceipt(address(receipt)), admin, treasury);
+        (market,) = MarketFactory.deploy(IERC20(address(usdc)), IPatchReceipt(address(receipt)), admin, treasury);
         receipt.setMarket(market);
         vm.prank(admin);
         market.setParams(500, 500, 500, 5e6, 25e6, 1_000_000e6, 5 minutes, 1 days, 72 hours);

@@ -4,9 +4,11 @@ pragma solidity 0.8.28;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IPatchReceipt} from "./interfaces/IPatchReceipt.sol";
 
 /// @title PatchedMarket
@@ -16,7 +18,17 @@ import {IPatchReceipt} from "./interfaces/IPatchReceipt.sol";
 /// @dev Monad executes independent transactions in parallel. A bid only writes its own patch slot
 ///      (plus the listing end time inside the anti-snipe window), so bids on different patches do
 ///      not conflict. Nothing global is written on the bid path.
-contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
+///
+/// @dev Deployed behind an ERC-1967 (UUPS) proxy, so the address, the listings and the money stay put when the
+///      logic is upgraded. Only the default admin can upgrade, and `freezeUpgrades` turns that off for good.
+///      To keep the storage layout safe: only ever append new state variables at the end of this contract.
+contract PatchedMarket is
+    Initializable,
+    UUPSUpgradeable,
+    AccessControlUpgradeable,
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     using SafeERC20 for IERC20;
 
     // ─────────────────────────────── Types ───────────────────────────────
@@ -128,6 +140,7 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
     error ReviewOver();
     error AlreadyDisputed();
     error AlreadyApproved();
+    error UpgradesAreFrozen();
     error NotDisputed();
     error InvalidParams();
     error OverNewCreatorCap();
@@ -179,6 +192,7 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
     event FastTracked(uint256 indexed listingId, uint8 indexed milestone);
     event ProofApproved(uint256 indexed listingId, uint8 indexed milestone, uint8 indexed patchId, address holder);
     event MinDisputeWindowUpdated(uint32 minDisputeWindow);
+    event UpgradesFrozen();
     event Disputed(
         uint256 indexed listingId, uint8 indexed milestone, uint8 indexed patchId, address holder, string reasonURI
     );
@@ -210,24 +224,25 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
     uint8 public constant MAX_PAYEES = 8;
     uint16 internal constant BPS = 10_000;
 
-    IERC20 public immutable usdc;
-    IPatchReceipt public immutable receipt;
+    IERC20 public usdc;
+    IPatchReceipt public receipt;
     address public treasury;
 
-    uint16 public feeBps = 500; // 5% of creator payouts
-    uint16 public royaltyBps = 500; // 5% of resales, to the creator
-    uint16 public minIncrementBps = 500; // next bid >= top + 5% ...
-    uint96 public minIncrement = 5e6; // ... and >= top + $5
-    uint64 public minBond = 25e6;
-    uint96 public newCreatorCap = 1_000e6; // sum of buy-now prices for creators with no deliveries
-    uint32 public snipeWindow = 5 minutes;
-    uint32 public maxExtension = 1 days;
-    uint32 public disputeWindow = 72 hours;
+    // Defaults are set in `initialize`: a proxy does not run these declarations
+    uint16 public feeBps; // 5% of creator payouts
+    uint16 public royaltyBps; // 5% of resales, to the creator
+    uint16 public minIncrementBps; // next bid >= top + 5% ...
+    uint96 public minIncrement; // ... and >= top + $5
+    uint64 public minBond;
+    uint96 public newCreatorCap; // sum of buy-now prices for creators with no deliveries
+    uint32 public snipeWindow;
+    uint32 public maxExtension;
+    uint32 public disputeWindow;
     /// @notice The shortest review window `setParams` accepts. One hour by default; a demo deployment can lower it.
-    uint32 public minDisputeWindow = 1 hours;
+    uint32 public minDisputeWindow;
 
-    uint32 public nextEventId = 1;
-    uint256 public nextListingId = 1;
+    uint32 public nextEventId;
+    uint256 public nextListingId;
 
     mapping(uint32 => EventInfo) public events;
     mapping(uint256 => Listing) internal _listings;
@@ -241,9 +256,33 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
     mapping(address => Reputation) public reputation;
     mapping(address => bytes32) public brandName;
 
-    constructor(IERC20 usdc_, IPatchReceipt receipt_, address admin, address treasury_) {
+    /// @notice Once true, the logic can never be upgraded again.
+    bool public upgradesFrozen;
+    // New state variables go below this line, never above (proxy storage layout).
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(IERC20 usdc_, IPatchReceipt receipt_, address admin, address treasury_) external initializer {
         if (address(usdc_) == address(0) || address(receipt_) == address(0)) revert InvalidParams();
         if (admin == address(0) || treasury_ == address(0)) revert InvalidParams();
+        __AccessControl_init();
+        __Pausable_init();
+        __ReentrancyGuard_init();
+        feeBps = 500;
+        royaltyBps = 500;
+        minIncrementBps = 500;
+        minIncrement = 5e6;
+        minBond = 25e6;
+        newCreatorCap = 1_000e6;
+        snipeWindow = 5 minutes;
+        maxExtension = 1 days;
+        disputeWindow = 72 hours;
+        minDisputeWindow = 1 hours;
+        nextEventId = 1;
+        nextListingId = 1;
         usdc = usdc_;
         receipt = receipt_;
         treasury = treasury_;
@@ -665,6 +704,16 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
         minDisputeWindow = minDisputeWindow_;
         if (disputeWindow < minDisputeWindow_) disputeWindow = minDisputeWindow_;
         emit MinDisputeWindowUpdated(minDisputeWindow_);
+    }
+
+    /// @notice Permanently switch off upgrades. One-way: after this the logic can never change.
+    function freezeUpgrades() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        upgradesFrozen = true;
+        emit UpgradesFrozen();
+    }
+
+    function _authorizeUpgrade(address) internal view override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (upgradesFrozen) revert UpgradesAreFrozen();
     }
 
     function setTreasury(address treasury_) external onlyRole(DEFAULT_ADMIN_ROLE) {

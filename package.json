@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "contracts:setup": "cd contracts && forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts@v5.4.0 --no-git",
+    "contracts:setup": "cd contracts && forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts@v5.4.0 OpenZeppelin/openzeppelin-contracts-upgradeable@v5.4.0 --no-git",
     "contracts:build": "cd contracts && forge build",
     "contracts:test": "cd contracts && forge test",
     "shared:abi": "node packages/shared/scripts/export-abi.mjs",

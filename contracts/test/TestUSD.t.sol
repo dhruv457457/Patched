@@ -7,6 +7,7 @@ import {TestUSD} from "../src/TestUSD.sol";
 import {PatchedMarket} from "../src/PatchedMarket.sol";
 import {PatchReceipt} from "../src/PatchReceipt.sol";
 import {IPatchReceipt} from "../src/interfaces/IPatchReceipt.sol";
+import {MarketFactory} from "../script/MarketFactory.sol";
 
 contract TestUSDTest is Test {
     TestUSD token;
@@ -44,7 +45,7 @@ contract TestUSDTest is Test {
     /// The market's bidWithPermit path works with this token's permit.
     function test_permitWorksWithMarket() public {
         PatchReceipt receipt = new PatchReceipt();
-        PatchedMarket market = new PatchedMarket(IERC20(address(token)), IPatchReceipt(address(receipt)), address(this), address(this));
+        (PatchedMarket market,) = MarketFactory.deploy(IERC20(address(token)), IPatchReceipt(address(receipt)), address(this), address(this));
         receipt.setMarket(market);
 
         (address owner, uint256 pk) = makeAddrAndKey("brand");

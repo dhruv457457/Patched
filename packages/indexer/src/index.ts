@@ -316,7 +316,7 @@ async function refreshListing(sql: Sql, client: PublicClient, chainId: number, m
   }
 
   for (let m = 0; m < L.milestoneCount; m++) {
-    const ms = await client.readContract({ address: market, abi: patchedMarketAbi, functionName: "getMilestone", args: [id, m] });
+    const ms = await readMilestone(client, market, id, m);
     await sql`
       insert into public.milestones (chain_id, listing_id, idx, bps, deadline, status, review_ends_at, disputed_mask, resolved_mask, approved_mask, proof_hash, proof_uri)
       values (${chainId}, ${id.toString()}, ${m}, ${L.milestoneBps[m]}, ${toDate(L.deadlines[m])}, ${ms.status},
@@ -327,5 +327,30 @@ async function refreshListing(sql: Sql, client: PublicClient, chainId: number, m
       on conflict (chain_id, listing_id, idx) do update set
         status = excluded.status, review_ends_at = excluded.review_ends_at, disputed_mask = excluded.disputed_mask,
         resolved_mask = excluded.resolved_mask, approved_mask = excluded.approved_mask, proof_hash = excluded.proof_hash, proof_uri = excluded.proof_uri`;
+  }
+}
+
+
+/** The milestone as older markets return it: no `approvedMask` (before brands could approve a proof). */
+const legacyMilestoneAbi = [
+  {
+    type: "function", name: "getMilestone", stateMutability: "view",
+    inputs: [{ name: "id", type: "uint256" }, { name: "milestone", type: "uint8" }],
+    outputs: [{
+      type: "tuple", components: [
+        { name: "status", type: "uint8" }, { name: "reviewEndsAt", type: "uint40" }, { name: "disputedMask", type: "uint16" },
+        { name: "resolvedMask", type: "uint16" }, { name: "proofHash", type: "bytes32" },
+      ],
+    }],
+  },
+] as const;
+
+/** Reads a milestone from either version of the market, so an app deployed ahead of (or behind) the contract keeps indexing. */
+async function readMilestone(client: PublicClient, market: `0x${string}`, id: bigint, m: number) {
+  try {
+    return await client.readContract({ address: market, abi: patchedMarketAbi, functionName: "getMilestone", args: [id, m] });
+  } catch {
+    const old = await client.readContract({ address: market, abi: legacyMilestoneAbi, functionName: "getMilestone", args: [id, m] });
+    return { ...old, approvedMask: 0 };
   }
 }

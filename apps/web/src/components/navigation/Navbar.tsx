@@ -21,7 +21,7 @@ export function Navbar() {
           <Logo size={34} />
         </Link>
         <nav className="flex items-center gap-1.5 sm:gap-2.5" aria-label="Main navigation">
-          <Link href="/#how-it-works" className="hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-semibold no-underline text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--soft)]">
+          <Link href={`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/#how-it-works`} className="hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-semibold no-underline text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--soft)]">
             How it works
           </Link>
           <button

@@ -1,7 +1,7 @@
 import { getSessionUser, unauthorized } from "@/lib/server/auth";
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
-import { HANDLE_RE, RESERVED_HANDLES as RESERVED, handleProblem } from "@/lib/handles";
+import { handleProblem } from "@/lib/handles";
 
 export const runtime = "nodejs";
 
@@ -92,7 +92,7 @@ function bad(error: string) {
 }
 
 async function freeHandle(preferred: string | null): Promise<string | null> {
-  if (!preferred || !HANDLE_RE.test(preferred) || RESERVED.has(preferred)) return null;
+  if (!preferred || handleProblem(preferred)) return null;
   const { data } = await supabaseAdmin().from("profiles").select("id").eq("handle", preferred).maybeSingle();
   return data ? null : preferred;
 }

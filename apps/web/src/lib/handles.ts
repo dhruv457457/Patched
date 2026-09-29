@@ -10,5 +10,7 @@ export const HANDLE_RE = /^[a-z0-9][a-z0-9._-]{1,30}$/;
 export function handleProblem(h: string): string | null {
   if (!HANDLE_RE.test(h)) return "2 to 31 characters: letters, numbers, dots, dashes or underscores.";
   if (/^0x[0-9a-f]{40}$/.test(h) || RESERVED_HANDLES.has(h)) return "That handle isn't allowed.";
+  // On a creator's own subdomain, /6 means listing 6, so a handle made only of digits would be ambiguous.
+  if (/^\d+$/.test(h)) return "Use at least one letter.";
   return null;
 }

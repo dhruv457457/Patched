@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import {
   PrivyProvider,
+  useCreateWallet,
   useExportWallet,
   useLinkAccount,
   useLoginWithEmail,
@@ -12,6 +13,7 @@ import {
   useMfaEnrollment,
   usePrivy,
   useSendTransaction,
+  useUser,
   useSignTypedData,
   useWallets,
 } from "@privy-io/react-auth";
@@ -38,6 +40,8 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
   const { initOAuth } = useLoginWithOAuth();
   const { sendCode, loginWithCode } = useLoginWithEmail();
   const { generateSiweMessage, loginWithSiwe } = useLoginWithSiwe();
+  const { createWallet } = useCreateWallet();
+  const { refreshUser } = useUser();
 
   // linkEmail() resolves when Privy reports the email linked.
   const linking = useRef<{ resolve: () => void; reject: (e: unknown) => void } | null>(null);
@@ -52,19 +56,25 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
     },
   });
 
-  // Your wallet is the one you linked first (same rule as the server): MetaMask users keep their MetaMask wallet,
-  // X and email users their Privy embedded wallet (gas-sponsored, silent signing).
+  // Your wallet is the one you chose at sign-in (saved on your Privy user), else the one you linked first (same rule
+  // as the server): MetaMask users keep their MetaMask wallet, X and email users their Privy embedded wallet
+  // (gas-sponsored, silent signing).
   const linked = (user?.linkedAccounts ?? [])
     .filter((a): a is typeof a & { address: string; chainType: string; walletClientType?: string } =>
       a.type === "wallet" && "address" in a && (("chainType" in a ? a.chainType : "ethereum") === "ethereum"))
     .sort((a, b) => (a.firstVerifiedAt?.getTime() ?? Infinity) - (b.firstVerifiedAt?.getTime() ?? Infinity));
-  const mainAddress = linked[0]?.address.toLowerCase();
+  const chosen = (user?.customMetadata?.accountWallet as string | undefined)?.toLowerCase();
+  const pick = linked.find((a) => a.address.toLowerCase() === chosen) ?? linked[0];
+  const mainAddress = pick?.address.toLowerCase();
   const wallet = mainAddress
     ? wallets.find((w) => w.address.toLowerCase() === mainAddress)
     : wallets.find((w) => w.walletClientType === "privy") ?? wallets[0];
   const walletAddress = (mainAddress ?? wallet?.address) as `0x${string}` | undefined;
-  const embedded = linked[0] ? linked[0].walletClientType === "privy" : wallet?.walletClientType === "privy";
+  const embedded = pick ? pick.walletClientType === "privy" : wallet?.walletClientType === "privy";
   const xHandle = user?.twitter?.username ?? undefined;
+
+  const linkedRef = useRef(linked);
+  linkedRef.current = linked;
 
   useEffect(() => {
     onChange({
@@ -92,6 +102,23 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
         const message = await generateSiweMessage({ address, chainId: `eip155:${CHAIN_ID}` });
         const signature = (await eth.request({ method: "personal_sign", params: [message, address] })) as string;
         await loginWithSiwe({ signature, message, walletClientType: walletClientType(picked), connectorType: "injected" });
+        return address;
+      },
+      chooseWallet: async (kind, ownAddress) => {
+        let address = ownAddress;
+        if (kind === "fresh") {
+          // A Privy wallet already on this account is reused; otherwise make one.
+          const existing = linkedRef.current.find((a) => a.walletClientType === "privy");
+          address = existing?.address ?? (await createWallet()).address;
+        }
+        const token = await getAccessToken();
+        const res = await fetch("/api/profile/wallet", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: JSON.stringify({ address }),
+        });
+        if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't save your wallet choice.");
+        await refreshUser();
       },
       logout,
       getAccessToken,

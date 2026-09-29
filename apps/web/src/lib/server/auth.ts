@@ -7,6 +7,8 @@ const jwks = createRemoteJWKSet(new URL(process.env.PRIVY_JWKS_URL ?? `https://a
 export interface SessionUser {
   did: string;
   wallet: `0x${string}` | null;
+  /** Every Ethereum wallet linked to the account (the account's wallet is one of them). */
+  wallets: string[];
   xHandle: string | null;
   /** Emails Privy has verified for this user (email login/link or Google). */
   emails: string[];
@@ -58,20 +60,28 @@ async function lookupUser(did: string): Promise<SessionUser> {
     },
     cache: "no-store",
   });
-  if (!res.ok) return { did, wallet: null, xHandle: null, emails: [] };
-  const user = (await res.json()) as { linked_accounts?: PrivyLinkedAccount[] };
+  if (!res.ok) return { did, wallet: null, wallets: [], xHandle: null, emails: [] };
+  const user = (await res.json()) as { linked_accounts?: PrivyLinkedAccount[]; custom_metadata?: { accountWallet?: string } };
   const accounts = user.linked_accounts ?? [];
   const evm = accounts.filter((a) => a.type === "wallet" && (a.chain_type ?? "ethereum") === "ethereum" && a.address);
-  // The account's wallet is the one linked first: a MetaMask user keeps their MetaMask wallet (where their money,
-  // listings and bids are) even if Privy later adds an embedded wallet; an X or email user keeps their embedded one.
+  // The account's wallet is the one the person chose at sign-in (saved on their Privy user), else the one linked
+  // first: a MetaMask user keeps their MetaMask wallet (where their money, listings and bids are) even if Privy
+  // later adds an embedded wallet; an X or email user keeps their embedded one.
+  const wallets = evm.map((a) => a.address!.toLowerCase());
+  const chosen = user.custom_metadata?.accountWallet?.toLowerCase();
   const first = [...evm].sort((a, b) => (a.first_verified_at ?? Infinity) - (b.first_verified_at ?? Infinity))[0];
-  const wallet = first?.address?.toLowerCase() ?? null;
+  const wallet = (chosen && wallets.includes(chosen) ? chosen : first?.address?.toLowerCase()) ?? null;
   const x = accounts.find((a) => a.type === "twitter_oauth");
   const emails = accounts
     .map((a) => (a.type === "email" ? a.address : a.type === "google_oauth" ? a.email : undefined))
     .filter((e): e is string => !!e)
     .map((e) => e.toLowerCase());
-  return { did, wallet: wallet as `0x${string}` | null, xHandle: x?.username ?? null, emails };
+  return { did, wallet: wallet as `0x${string}` | null, wallets, xHandle: x?.username ?? null, emails };
+}
+
+/** Forget the cached lookup for a user (after their wallet choice changes). */
+export function forgetUser(did: string) {
+  userCache.delete(did);
 }
 
 export function unauthorized() {

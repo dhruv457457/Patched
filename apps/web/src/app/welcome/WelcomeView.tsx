@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, Fingerprint, Loader2, Lock, Mail, ShieldCheck, Smartphone, Wallet, Zap } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Fingerprint, Loader2, Lock, Mail, ShieldCheck, Smartphone, Sparkles, Wallet, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { StoryPanel } from "@/components/brand/StoryPanel";
 import { PrivyLogo } from "@/components/brand/PartnerLogos";
@@ -14,6 +14,7 @@ import { handleProblem } from "@/lib/handles";
 import { STEP_UP_USD } from "@/lib/market/stepUp";
 import { GAS_SPONSORED } from "@/lib/config";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/Toast";
 
 type Role = "creator" | "brand" | "both";
 const X_PATH = "M17.8 3h3.1l-6.8 7.8L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.3-8.3L2 3h6.4l4.4 5.8zM16.7 19.2h1.7L7.3 4.7H5.5z";
@@ -35,6 +36,8 @@ export function WelcomeView() {
   const [next, setNext] = useState<string | null>(null);
   const [step, setStep] = useState<"profile" | "bidding">("profile");
   const [role, setRole] = useState<Role>("both");
+  // True while a wallet sign-in is being finished (making or choosing the Patched wallet).
+  const [setup, setSetup] = useState(false);
 
   useEffect(() => setNext(safeNext(new URLSearchParams(window.location.search).get("next"))), []);
 
@@ -82,7 +85,12 @@ export function WelcomeView() {
         {!ready ? (
           <Loader2 className="animate-spin text-[var(--muted)]" aria-label="Loading" />
         ) : !authenticated ? (
-          <SignInCard />
+          <SignInCard onSetup={setSetup} />
+        ) : setup ? (
+          <div className="grid justify-items-center gap-3 text-center">
+            <Loader2 className="animate-spin text-[var(--muted)]" aria-hidden="true" />
+            <b>Setting up your wallet…</b>
+          </div>
         ) : step === "profile" ? (
           <ProfileStep role={role} setRole={setRole} onDone={() => setStep("bidding")} />
         ) : (
@@ -94,8 +102,8 @@ export function WelcomeView() {
 }
 
 /** Privy sign-in in Patched's design: X first, then an email code, then "I have a wallet" (pick any wallet in this browser). */
-function SignInCard() {
-  const { loginWithX, sendEmailCode, loginWithEmailCode, loginWithWallet, openPrivyLogin } = usePatchedAuth();
+function SignInCard({ onSetup }: { onSetup: (setting: boolean) => void }) {
+  const { loginWithX, sendEmailCode, loginWithEmailCode, loginWithWallet, chooseWallet, openPrivyLogin } = usePatchedAuth();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
@@ -103,21 +111,37 @@ function SignInCard() {
   const [error, setError] = useState<string | null>(null);
   const [showWallets, setShowWallets] = useState(false);
   const [signingWith, setSigningWith] = useState<string | null>(null);
+  // The wallet you tapped, waiting for "use my own" or "create a fresh Patched wallet".
+  const [picked, setPicked] = useState<InjectedWallet | null>(null);
+  const [signingKind, setSigningKind] = useState<"own" | "fresh" | null>(null);
   const wallets = useInjectedWallets();
 
-  async function signInWithWallet(w: InjectedWallet) {
+  async function signInWithWallet(w: InjectedWallet, kind: "own" | "fresh") {
     setBusy("wallet");
     setSigningWith(w.id);
+    setSigningKind(kind);
     setError(null);
+    onSetup(true);
+    let address: string | null = null;
     try {
-      await loginWithWallet(w);
+      address = await loginWithWallet(w);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(/reject|denied|cancel/i.test(msg) ? "You cancelled the signature." : `${w.name} didn't sign in. Try again.`);
-    } finally {
-      setBusy(null);
-      setSigningWith(null);
     }
+    if (address) {
+      try {
+        await chooseWallet(kind, address);
+      } catch (e) {
+        // Signed in fine; only the wallet choice failed, so they carry on with their own wallet.
+        toast(kind === "fresh" ? "Couldn't make a fresh wallet, so you're using your own. You can try again in Settings." : "Couldn't save your wallet choice.");
+        console.error(e);
+      }
+    }
+    onSetup(false);
+    setBusy(null);
+    setSigningWith(null);
+    setSigningKind(null);
   }
 
   async function run(kind: "x" | "send" | "code", fn: () => Promise<void>) {
@@ -185,11 +209,11 @@ function SignInCard() {
         className="h-11 rounded-full border-[1.5px] border-[var(--soft)] font-semibold hover:border-[var(--line)] hover:bg-[var(--soft)] inline-flex items-center justify-center gap-2">
         <Wallet size={15} /> I have a wallet <ChevronDown size={15} className={cn("transition-transform", showWallets && "rotate-180")} />
       </button>
-      {showWallets && (
+      {showWallets && !picked && (
         <ul id="welcome-wallets" className="grid gap-1.5" aria-label="Pick a wallet">
           {wallets.map((w) => (
             <li key={w.id}>
-              <button onClick={() => signInWithWallet(w)} disabled={!!busy}
+              <button onClick={() => setPicked(w)} disabled={!!busy}
                 className="w-full h-12 px-3 rounded-2xl border-[1.5px] border-[var(--soft)] hover:border-[var(--line)] hover:bg-[var(--soft)] flex items-center gap-3 text-left disabled:opacity-60">
                 {w.icon ? (
                   // eslint-disable-next-line @next/next/no-img-element -- wallet icons are data URIs from the extension
@@ -198,11 +222,7 @@ function SignInCard() {
                   <span className="size-[26px] rounded-lg bg-[var(--soft)] grid place-items-center flex-none"><Wallet size={14} /></span>
                 )}
                 <span className="flex-1 min-w-0 truncate font-semibold">{w.name}</span>
-                {signingWith === w.id ? (
-                  <span className="text-xs font-semibold text-[var(--muted)] inline-flex items-center gap-1.5"><Loader2 size={13} className="animate-spin" /> Check your wallet</span>
-                ) : (
-                  <span className="text-xs text-[var(--muted)]">Detected</span>
-                )}
+                <span className="text-xs text-[var(--muted)]">Detected</span>
               </button>
             </li>
           ))}
@@ -218,6 +238,30 @@ function SignInCard() {
             <li className="text-xs text-center text-[var(--muted)]" role="status">No wallet extension in this browser. Scan a QR code with your phone wallet, or use X or email.</li>
           )}
         </ul>
+      )}
+      {showWallets && picked && (
+        <div id="welcome-wallets" className="grid gap-2" role="group" aria-label={`How to use ${picked.name}`}>
+          <button type="button" onClick={() => setPicked(null)} disabled={!!busy} className="justify-self-start inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-60">
+            <ArrowLeft size={13} /> Back to wallets
+          </button>
+          <b className="text-sm">Which wallet should Patched use?</b>
+          {([
+            { kind: "own" as const, Icon: Wallet, title: `My ${picked.name}`, body: "Your money stays in it. Each bid asks you to approve in the wallet, and you pay the small network fee." },
+            { kind: "fresh" as const, Icon: Sparkles, title: "A fresh Patched wallet", body: `One-tap bids and no network fee. It starts empty: add USDC from any wallet, ${picked.name} included.` },
+          ]).map(({ kind, Icon, title, body }) => (
+            <button key={kind} type="button" onClick={() => signInWithWallet(picked, kind)} disabled={!!busy}
+              className="w-full p-3.5 rounded-2xl border-[1.5px] border-[var(--soft)] hover:border-[var(--line)] hover:bg-[var(--soft)] flex gap-3 items-start text-left disabled:opacity-60">
+              <span className="size-9 rounded-xl bg-[var(--card)] border-[1.5px] border-[var(--soft)] grid place-items-center flex-none">
+                {signingWith === picked.id && signingKind === kind ? <Loader2 size={16} className="animate-spin" /> : <Icon size={16} />}
+              </span>
+              <span className="grid gap-0.5 min-w-0">
+                <b className="text-[15px]">{title}</b>
+                <span className="text-[13px] text-[var(--muted)] leading-snug">{body}</span>
+              </span>
+            </button>
+          ))}
+          <p className="text-xs text-center text-[var(--muted)]">{busy === "wallet" ? `Check ${picked.name} to sign in.` : `You sign in with ${picked.name} either way.`}</p>
+        </div>
       )}
       <p className="text-xs text-center text-[var(--muted)] leading-relaxed">
         With X or email, Privy makes your wallet for you and bids are one tap{GAS_SPONSORED ? ", with no network fee" : ""}.

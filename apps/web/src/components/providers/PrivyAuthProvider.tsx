@@ -29,7 +29,12 @@ export interface AuthContextValue {
   sendEmailCode: (email: string) => Promise<void>;
   loginWithEmailCode: (code: string) => Promise<void>;
   /** Sign in with a browser wallet the person picked (MetaMask, Rabby, Phantom...) by signing one message, with no Privy window. */
-  loginWithWallet: (wallet: InjectedWallet) => Promise<void>;
+  loginWithWallet: (wallet: InjectedWallet) => Promise<string>;
+  /**
+   * After signing in with a wallet of your own: keep using it ("own"), or create a fresh Privy wallet and use that
+   * ("fresh": one-tap bids, no network fee, starts empty). `ownAddress` is the wallet you signed in with.
+   */
+  chooseWallet: (kind: "own" | "fresh", ownAddress: string) => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   /** Embedded-wallet actions (Privy hooks, passed through as-is). */
@@ -69,6 +74,7 @@ const NOT_READY: AuthContextValue = {
   sendEmailCode: notReady,
   loginWithEmailCode: notReady,
   loginWithWallet: notReady,
+  chooseWallet: notReady,
   logout: async () => {},
   getAccessToken: async () => null,
   sendTransaction: notReady,

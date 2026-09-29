@@ -120,6 +120,29 @@ export const patchedMarketAbi = [
   },
   {
     "type": "function",
+    "name": "approveProof",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "milestone",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "patchId",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "bid",
     "inputs": [
       {
@@ -647,6 +670,11 @@ export const patchedMarketAbi = [
             "internalType": "uint16"
           },
           {
+            "name": "approvedMask",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "proofHash",
             "type": "bytes32",
             "internalType": "bytes32"
@@ -935,6 +963,19 @@ export const patchedMarketAbi = [
         "name": "",
         "type": "uint64",
         "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minDisputeWindow",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "stateMutability": "view"
@@ -1311,6 +1352,19 @@ export const patchedMarketAbi = [
         "name": "active",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMinDisputeWindow",
+    "inputs": [
+      {
+        "name": "minDisputeWindow_",
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "outputs": [],
@@ -2006,6 +2060,19 @@ export const patchedMarketAbi = [
   },
   {
     "type": "event",
+    "name": "MinDisputeWindowUpdated",
+    "inputs": [
+      {
+        "name": "minDisputeWindow",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ParamsUpdated",
     "inputs": [],
     "anonymous": false
@@ -2084,6 +2151,37 @@ export const patchedMarketAbi = [
     "inputs": [
       {
         "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProofApproved",
+    "inputs": [
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "milestone",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "patchId",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "holder",
         "type": "address",
         "indexed": false,
         "internalType": "address"
@@ -2368,6 +2466,11 @@ export const patchedMarketAbi = [
         "internalType": "bytes32"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "AlreadyApproved",
+    "inputs": []
   },
   {
     "type": "error",

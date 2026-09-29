@@ -270,6 +270,8 @@ export interface MilestoneView {
   reviewEndsAt: number | null;
   disputedMask: number;
   resolvedMask: number;
+  /** Patches whose holder accepted this proof. */
+  approvedMask: number;
   proof: { files: string[]; note: string | null; xUrl: string | null } | null;
 }
 
@@ -308,6 +310,7 @@ export async function fetchDelivery(id: number, metadata: ListingMetadata | null
         reviewEndsAt: m.review_ends_at ? new Date(m.review_ends_at).getTime() : null,
         disputedMask: m.disputed_mask,
         resolvedMask: m.resolved_mask,
+        approvedMask: m.approved_mask ?? 0,
         proof: p ? { files: p.files as string[], note: p.note, xUrl: (p.x_url as string | null) ?? null } : null,
       };
     }),

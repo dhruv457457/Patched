@@ -69,7 +69,7 @@ export function eventDays(e: PlanEvent | undefined): number {
  * Turn the creator's payout choice into on-chain milestones: names, basis points that add up to exactly 10,000,
  * and proof deadlines that are after the auction and strictly increasing (the market requires both).
  */
-export function planMilestones({ kind, draft, biddingEndsAt, event }: { kind: Kind; draft: DealDraft; biddingEndsAt: number; event?: PlanEvent }): PlannedMilestone[] {
+export function planMilestones({ kind, draft, biddingEndsAt, event, demoStepMs }: { kind: Kind; draft: DealDraft; biddingEndsAt: number; event?: PlanEvent; demoStepMs?: number }): PlannedMilestone[] {
   const days = kind === "car" ? draft.days : eventDays(event);
   // The event (or, with no event picked, a window that starts 5 days after bidding closes).
   const start = event ? Math.max(event.startsAt, biddingEndsAt + DAY) : biddingEndsAt + 5 * DAY;
@@ -115,7 +115,8 @@ export function planMilestones({ kind, draft, biddingEndsAt, event }: { kind: Ki
   return steps.map((s, i) => {
     const bps = i === steps.length - 1 ? 10_000 - used : Math.round(s.pct * 100);
     used += bps;
-    const deadline = Math.max(s.due, prev + HOUR);
+    // Demo timing: proofs are due a few minutes apart after bidding ends, whatever the event dates are.
+    const deadline = demoStepMs ? biddingEndsAt + (i + 1) * demoStepMs : Math.max(s.due, prev + HOUR);
     prev = deadline;
     return { name: s.name.slice(0, 40), bps, deadline };
   });

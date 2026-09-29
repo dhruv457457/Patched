@@ -202,6 +202,9 @@ async function handle(
         on conflict do nothing`;
       await notify(note, await creatorOf(sql, chainId, a.listingId), "disputed", { listingId, milestone: Number(a.milestone), patchId: Number(a.patchId) });
       break;
+    case "ProofApproved":
+      await notify(note, await creatorOf(sql, chainId, a.listingId), "proof_approved", { listingId, milestone: Number(a.milestone), patchId: Number(a.patchId) });
+      break;
     case "DisputeResolved":
       await sql`
         update public.disputes set resolved = true, to_creator = ${num(a.toCreator)}, to_holder = ${num(a.toHolder)}
@@ -315,14 +318,14 @@ async function refreshListing(sql: Sql, client: PublicClient, chainId: number, m
   for (let m = 0; m < L.milestoneCount; m++) {
     const ms = await client.readContract({ address: market, abi: patchedMarketAbi, functionName: "getMilestone", args: [id, m] });
     await sql`
-      insert into public.milestones (chain_id, listing_id, idx, bps, deadline, status, review_ends_at, disputed_mask, resolved_mask, proof_hash, proof_uri)
+      insert into public.milestones (chain_id, listing_id, idx, bps, deadline, status, review_ends_at, disputed_mask, resolved_mask, approved_mask, proof_hash, proof_uri)
       values (${chainId}, ${id.toString()}, ${m}, ${L.milestoneBps[m]}, ${toDate(L.deadlines[m])}, ${ms.status},
-        ${ms.reviewEndsAt ? toDate(ms.reviewEndsAt) : null}, ${ms.disputedMask}, ${ms.resolvedMask},
+        ${ms.reviewEndsAt ? toDate(ms.reviewEndsAt) : null}, ${ms.disputedMask}, ${ms.resolvedMask}, ${Number(ms.approvedMask ?? 0)},
         ${ms.proofHash === "0x0000000000000000000000000000000000000000000000000000000000000000" ? null : ms.proofHash},
         (select args->>'proofURI' from public.chain_events where chain_id = ${chainId} and event_name = 'ProofSubmitted'
            and (args->>'listingId')::numeric = ${id.toString()} and (args->>'milestone')::int = ${m} order by block_number desc limit 1))
       on conflict (chain_id, listing_id, idx) do update set
         status = excluded.status, review_ends_at = excluded.review_ends_at, disputed_mask = excluded.disputed_mask,
-        resolved_mask = excluded.resolved_mask, proof_hash = excluded.proof_hash, proof_uri = excluded.proof_uri`;
+        resolved_mask = excluded.resolved_mask, approved_mask = excluded.approved_mask, proof_hash = excluded.proof_hash, proof_uri = excluded.proof_uri`;
   }
 }

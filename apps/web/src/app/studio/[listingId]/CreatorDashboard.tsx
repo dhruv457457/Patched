@@ -91,7 +91,7 @@ export function CreatorDashboard({ listing: lw, delivery: dw }: { listing: Wire<
       const json = (await res.json()) as { proofHash?: `0x${string}`; proofURI?: string; error?: string };
       if (!res.ok || !json.proofHash) throw new Error(json.error ?? "Couldn't save your proof.");
       setBusy(null);
-      const ok = await tx("proof", "Proof submitted. Brands have 72 hours to review it.", encodeFunctionData({
+      const ok = await tx("proof", "Proof submitted. You are paid when every brand approves, or when the review window ends.", encodeFunctionData({
         abi: patchedMarketAbi, functionName: "submitProof", args: [BigInt(listing.id), m.idx, json.proofHash, json.proofURI!],
       }));
       if (ok) {

@@ -397,6 +397,90 @@ contract MilestoneTest is BaseTest {
         assertEq(market.getListing(id).nextMilestone, 1);
     }
 
+    function test_approveProof_allHoldersApprove_closesReviewEarly() public {
+        uint256 creatorStart = usdc.balanceOf(creator);
+        _submit(id, 0);
+
+        vm.prank(alice);
+        market.approveProof(id, 0, 0);
+        vm.expectRevert(PatchedMarket.ReviewNotOver.selector);
+        market.release(id, 0); // bob hasn't answered yet
+
+        vm.prank(bob);
+        market.approveProof(id, 0, 1);
+        market.release(id, 0); // no waiting: every holder said yes
+        assertEq(usdc.balanceOf(creator), creatorStart + 190e6);
+        assertEq(market.getListing(id).nextMilestone, 1);
+    }
+
+    function test_approveProof_disputeCountsAsAnswer_paysTheRest() public {
+        uint256 creatorStart = usdc.balanceOf(creator);
+        _submit(id, 0);
+        vm.prank(alice);
+        market.dispute(id, 0, 0, "ipfs://reason");
+        vm.prank(bob);
+        market.approveProof(id, 0, 1); // alice answered (disputed), bob approved: window closes
+        market.release(id, 0); // only bob's 40% of 300 = 120, fee 6
+        assertEq(usdc.balanceOf(creator), creatorStart + 114e6);
+    }
+
+    function test_approveProof_onlyTheHolder_once_andNotAfterDispute() public {
+        _submit(id, 0);
+        vm.prank(bob);
+        vm.expectRevert(PatchedMarket.NotHolder.selector);
+        market.approveProof(id, 0, 0); // patch 0 is alice's
+
+        vm.prank(alice);
+        market.approveProof(id, 0, 0);
+        vm.prank(alice);
+        vm.expectRevert(PatchedMarket.AlreadyApproved.selector);
+        market.approveProof(id, 0, 0);
+        vm.prank(alice);
+        vm.expectRevert(PatchedMarket.AlreadyApproved.selector);
+        market.dispute(id, 0, 0, ""); // approved is final
+
+        vm.prank(bob);
+        market.dispute(id, 0, 1, "");
+        vm.prank(bob);
+        vm.expectRevert(PatchedMarket.AlreadyDisputed.selector);
+        market.approveProof(id, 0, 1); // so is disputed
+    }
+
+    function test_approveProof_afterReviewOrBeforeProof_reverts() public {
+        vm.prank(alice);
+        vm.expectRevert(PatchedMarket.WrongMilestone.selector);
+        market.approveProof(id, 0, 0); // nothing submitted yet
+
+        _submit(id, 0);
+        vm.warp(vm.getBlockTimestamp() + 72 hours);
+        vm.prank(alice);
+        vm.expectRevert(PatchedMarket.ReviewOver.selector);
+        market.approveProof(id, 0, 0);
+    }
+
+    function test_minDisputeWindow_defaultsToAnHour_andDemoCanLowerIt() public {
+        vm.prank(admin);
+        vm.expectRevert(PatchedMarket.InvalidParams.selector);
+        market.setParams(500, 500, 500, 5e6, 25e6, 100_000e6, 5 minutes, 1 days, 2 minutes);
+
+        vm.prank(admin);
+        market.setMinDisputeWindow(1 minutes);
+        vm.prank(admin);
+        market.setParams(500, 500, 500, 5e6, 25e6, 100_000e6, 1 minutes, 1 days, 2 minutes);
+        assertEq(market.disputeWindow(), 2 minutes);
+
+        _submit(id, 0);
+        vm.warp(vm.getBlockTimestamp() + 2 minutes);
+        market.release(id, 0); // a two-minute review, as set
+        assertEq(market.getListing(id).nextMilestone, 1);
+    }
+
+    function test_setMinDisputeWindow_onlyDefaultAdmin() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        market.setMinDisputeWindow(1 minutes);
+    }
+
     function test_dispute_holdsOnlyThatPatch_thenSplit() public {
         uint256 creatorStart = usdc.balanceOf(creator);
         uint256 aliceStart = usdc.balanceOf(alice);

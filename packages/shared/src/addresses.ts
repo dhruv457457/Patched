@@ -11,6 +11,8 @@ export interface PatchedDeployment {
   autoBidderBlock?: number;
   /** PatchSweeper for this market (several patches in one transaction). */
   sweeper?: Address;
+  /** True once this market has `approveProof` and `minDisputeWindow` (brands can accept a proof early). */
+  approvals?: boolean;
   /** True when `usdc` is the TestUSD faucet token rather than real USDC. */
   testToken?: boolean;
 }

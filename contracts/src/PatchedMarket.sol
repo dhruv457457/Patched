@@ -84,6 +84,7 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
         uint40 reviewEndsAt;
         uint16 disputedMask;
         uint16 resolvedMask;
+        uint16 approvedMask;
         bytes32 proofHash;
     }
 
@@ -126,6 +127,7 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
     error ReviewNotOver();
     error ReviewOver();
     error AlreadyDisputed();
+    error AlreadyApproved();
     error NotDisputed();
     error InvalidParams();
     error OverNewCreatorCap();
@@ -175,6 +177,8 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
         uint256 indexed listingId, uint8 indexed milestone, bytes32 proofHash, string proofURI, uint40 reviewEndsAt
     );
     event FastTracked(uint256 indexed listingId, uint8 indexed milestone);
+    event ProofApproved(uint256 indexed listingId, uint8 indexed milestone, uint8 indexed patchId, address holder);
+    event MinDisputeWindowUpdated(uint32 minDisputeWindow);
     event Disputed(
         uint256 indexed listingId, uint8 indexed milestone, uint8 indexed patchId, address holder, string reasonURI
     );
@@ -219,6 +223,8 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
     uint32 public snipeWindow = 5 minutes;
     uint32 public maxExtension = 1 days;
     uint32 public disputeWindow = 72 hours;
+    /// @notice The shortest review window `setParams` accepts. One hour by default; a demo deployment can lower it.
+    uint32 public minDisputeWindow = 1 hours;
 
     uint32 public nextEventId = 1;
     uint256 public nextListingId = 1;
@@ -386,8 +392,33 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
         if (patchId >= L.patchCount || L.soldMask & bit == 0) revert BadPatch();
         if (receipt.ownerOf(tokenIdOf(id, patchId)) != msg.sender) revert NotHolder();
         if (ms.disputedMask & bit != 0) revert AlreadyDisputed();
+        if (ms.approvedMask & bit != 0) revert AlreadyApproved();
         ms.disputedMask |= bit;
         emit Disputed(id, milestone, patchId, msg.sender, reasonURI);
+    }
+
+    /// @notice The holder of a patch receipt accepts the proof for their patch. Once every sold patch has either
+    ///         approved or disputed (and at least one approved), the review window closes early so the creator
+    ///         can be paid without waiting it out. Disputed patches stay held back until an admin resolves them.
+    function approveProof(uint256 id, uint8 milestone, uint8 patchId) external whenNotPaused {
+        Listing storage L = _listings[id];
+        if (L.status != Status.Delivering) revert NotActive();
+        Milestone storage ms = _milestones[id][milestone];
+        if (ms.status != MilestoneStatus.Submitted) revert WrongMilestone();
+        if (block.timestamp >= ms.reviewEndsAt) revert ReviewOver();
+        uint16 bit = _bit(patchId);
+        if (patchId >= L.patchCount || L.soldMask & bit == 0) revert BadPatch();
+        if (receipt.ownerOf(tokenIdOf(id, patchId)) != msg.sender) revert NotHolder();
+        if (ms.disputedMask & bit != 0) revert AlreadyDisputed();
+        if (ms.approvedMask & bit != 0) revert AlreadyApproved();
+        ms.approvedMask |= bit;
+        emit ProofApproved(id, milestone, patchId, msg.sender);
+
+        uint16 sold = L.soldMask;
+        if ((ms.approvedMask | ms.disputedMask) & sold == sold) {
+            ms.reviewEndsAt = uint40(block.timestamp);
+            emit FastTracked(id, milestone);
+        }
     }
 
     // ─────────────────────────────── Resale ───────────────────────────────
@@ -614,7 +645,7 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (feeBps_ > 1_000 || royaltyBps_ > 1_000 || minIncrementBps_ > 5_000) revert InvalidParams();
         if (snipeWindow_ > 1 hours || maxExtension_ > 7 days) revert InvalidParams();
-        if (disputeWindow_ < 1 hours || disputeWindow_ > 14 days) revert InvalidParams();
+        if (disputeWindow_ < minDisputeWindow || disputeWindow_ > 14 days) revert InvalidParams();
         feeBps = feeBps_;
         royaltyBps = royaltyBps_;
         minIncrementBps = minIncrementBps_;
@@ -625,6 +656,15 @@ contract PatchedMarket is AccessControl, Pausable, ReentrancyGuard {
         maxExtension = maxExtension_;
         disputeWindow = disputeWindow_;
         emit ParamsUpdated();
+    }
+
+    /// @notice Lower or raise the floor for the review window (a demo deployment sets it to a minute; production
+    ///         keeps one hour). The current window is raised to the new floor if it would fall below it.
+    function setMinDisputeWindow(uint32 minDisputeWindow_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (minDisputeWindow_ == 0 || minDisputeWindow_ > 14 days) revert InvalidParams();
+        minDisputeWindow = minDisputeWindow_;
+        if (disputeWindow < minDisputeWindow_) disputeWindow = minDisputeWindow_;
+        emit MinDisputeWindowUpdated(minDisputeWindow_);
     }
 
     function setTreasury(address treasury_) external onlyRole(DEFAULT_ADMIN_ROLE) {

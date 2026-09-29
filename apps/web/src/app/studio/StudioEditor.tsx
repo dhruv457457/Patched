@@ -11,6 +11,7 @@ import { Seg } from "@/components/ui/Seg";
 import { toast } from "@/components/ui/Toast";
 import { formatUsdc } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { CHAIN_ID } from "@/lib/config";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useAuthedFetch } from "@/lib/authedFetch";
 import { CAR_VIEW_LAYOUTS, DEFAULT_LAYOUTS, MODEL_SHOT_LAYOUTS } from "@/lib/market/layouts";
@@ -82,6 +83,23 @@ const STYLE_CHOICES: { key: string; label: string }[] = [
   { key: "jersey", label: "Sports jersey" },
 ];
 const DAY = 86_400_000;
+const MIN = 60_000;
+/** How long bidding runs. The minute options are for demos, on the test network only. */
+const BID_OPTIONS = [
+  { ms: 5 * MIN, label: "5 min", demo: true },
+  { ms: 15 * MIN, label: "15 min", demo: true },
+  { ms: 60 * MIN, label: "1 hour", demo: true },
+  { ms: DAY, label: "1 day" },
+  { ms: 3 * DAY, label: "3 days" },
+  { ms: 5 * DAY, label: "5 days" },
+  { ms: 7 * DAY, label: "7 days" },
+];
+const PROOF_STEPS = [
+  { ms: 0, label: "Event dates" },
+  { ms: 3 * MIN, label: "3 min apart" },
+  { ms: 10 * MIN, label: "10 min apart" },
+  { ms: 30 * MIN, label: "30 min apart" },
+];
 const PASTELS = ["p2", "p3", "p1", "p4", "p5"] as const;
 const INPUT = "w-full min-w-0 h-11 px-3.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)]";
 const AREA = "w-full min-w-0 px-3.5 py-2.5 rounded-xl border-[1.5px] border-[var(--line)] bg-[var(--paper)] resize-y";
@@ -110,7 +128,10 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
   const [deal, setDeal] = useState<DealDraft>(() => defaultDraft("outfit"));
   const [title, setTitle] = useState("");
   const [eventId, setEventId] = useState<number>(events[0]?.id ?? 0);
-  const [days, setDays] = useState(3);
+  const [bidMs, setBidMs] = useState(3 * DAY);
+  // Demo timing: minute-long auctions and proofs a few minutes apart, so a whole listing can be shown in one sitting.
+  const [proofStepMs, setProofStepMs] = useState(0);
+  const demo = CHAIN_ID === 10143;
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [styleKey, setStyleKey] = useState<string>("current");
@@ -141,7 +162,7 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
   const buyNowTotal = patches.reduce((s, p) => s + p.buyNow, 0);
   const selected = patches.find((p) => p.id === selectedId) ?? null;
   const sidePatches = patches.filter((p) => p.side === side);
-  const plan = useMemo(() => planMilestones({ kind, draft: deal, biddingEndsAt: Date.now() + days * DAY, event }), [kind, deal, days, event]);
+  const plan = useMemo(() => planMilestones({ kind, draft: deal, biddingEndsAt: Date.now() + bidMs, event, demoStepMs: demo && proofStepMs ? proofStepMs : undefined }), [kind, deal, bidMs, event, demo, proofStepMs]);
   const publishing = step === "saving" || step === "approving" || step === "creating";
   const styleText = styleKey === "custom" ? customStyle.trim() : styleKey.startsWith("ai:") ? aiStyles[Number(styleKey.slice(3))] : styleKey;
   const canvas = views.find((v) => v.id === side)?.image ?? null;
@@ -368,7 +389,7 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
       },
       surfaceIndex: surface === "outfit" ? 0 : surface === "car" ? 1 : 2,
       eventId,
-      biddingEndsAt: Math.floor((Date.now() + days * DAY) / 1000),
+      biddingEndsAt: Math.floor((Date.now() + bidMs) / 1000),
       bond,
       floors: ordered.map((p) => BigInt(Math.round(p.floor * 1e6))),
       buyNows: ordered.map((p) => BigInt(Math.round(p.buyNow * 1e6))),
@@ -436,7 +457,7 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
                   </Field>
                   <div className="grid gap-1.5">
                     <span className="field-label">Bidding runs for</span>
-                    <Pills value={days} onPick={setDays} label="Bidding runs for" options={[1, 3, 5, 7].map((d) => ({ value: d, label: `${d} day${d > 1 ? "s" : ""}` }))} />
+                    <Pills value={bidMs} onPick={setBidMs} label="Bidding runs for" options={BID_OPTIONS.filter((o) => demo || !o.demo).map((o) => ({ value: o.ms, label: o.label }))} />
                   </div>
                 </div>
               </>
@@ -600,6 +621,13 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
               <>
                 <StepHead title="Set your deal" sub="How you get paid and what every brand gets. Brands see all of this before they bid." />
                 <DealTerms kind={kind} draft={deal} onChange={setDeal} plan={plan} eventName={event?.name ?? null} />
+                {demo && (
+                  <div className="grid gap-2 rounded-2xl bg-[var(--soft)] p-4">
+                    <span className="field-label">Demo timing <span className="font-normal text-[var(--muted)]">(test network only)</span></span>
+                    <p className="text-sm text-[var(--muted)]">Show the whole flow in minutes: each proof is due this long after the last one, starting when bidding ends.</p>
+                    <Pills value={proofStepMs} onPick={setProofStepMs} label="Time between proofs" options={PROOF_STEPS.map((o) => ({ value: o.ms, label: o.label }))} />
+                  </div>
+                )}
               </>
             )}
 

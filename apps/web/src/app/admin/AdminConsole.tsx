@@ -22,6 +22,7 @@ import { useTx } from "@/lib/market/useTx";
 import { useIndexerSync } from "@/lib/market/useIndexerSync";
 import { DISPUTE_CATEGORIES } from "@/lib/market/dispute";
 import { EventDetailsForm } from "./EventDetailsForm";
+import { TimingPanel } from "./TimingPanel";
 
 export interface AdminEvent {
   id: number;
@@ -191,6 +192,8 @@ export function AdminConsole({ pending: wire, review, events }: { pending: Wire<
           </div>
         )}
       </section>
+
+      <TimingPanel />
 
       <section>
         <h2 className="font-extrabold text-3xl tracking-tight mb-4">Events</h2>

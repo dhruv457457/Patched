@@ -63,7 +63,7 @@ export function DealTerms({ kind, draft, onChange, plan, eventName }: {
       )}
 
       <section className={cn("grid gap-3.5 pb-6 border-b-[1.5px] border-[var(--soft)]", kind === "car" && "pt-6")}>
-        <Head title="How you get paid" sub="Money waits in escrow. Each part unlocks when its proof is approved, and brands get 72 hours to check it." />
+        <Head title="How you get paid" sub="Money waits in escrow. Each part unlocks when its proof is approved: brands can approve it right away, or you are paid when their review window (72 hours) ends." />
         <div className="flex gap-2 flex-wrap" role="radiogroup" aria-label="Payout plan">
           {PRESETS.map((p) => (
             <button key={p.id} type="button" role="radio" aria-checked={draft.payout === p.id} title={p.note} onClick={() => set({ payout: p.id })}

@@ -31,7 +31,8 @@ function message(n: NotificationRow, patch: string, title: string): string {
     case "listing_live": return `${title} is live. Share it so brands start bidding.`;
     case "listing_rejected": return `${title} wasn't approved. Your bond was returned.`;
     case "bidding_closed": return `Bidding closed on ${title} with ${usd(p.totalEscrow)} in escrow. Time to print.`;
-    case "proof_submitted": return `The creator posted proof for ${patch}. You have 72 hours to review it.`;
+    case "proof_submitted": return `The creator posted proof for ${patch}. Approve it, or dispute it before the review ends.`;
+    case "proof_approved": return `A brand approved your proof for ${patch} on ${title}.`;
     case "disputed": return `A brand disputed ${patch} on ${title}. That payment is on hold for review.`;
     case "paid": return `You got paid ${usd(p.amount)} for ${title}.`;
     case "listing_failed": return `${title} missed a deadline. Your money for ${patch} was refunded.`;

@@ -20,7 +20,7 @@ import { useWatchers } from "@/lib/market/useWatchers";
 import { spotHeat } from "@/lib/market/heat";
 import { useBid } from "@/lib/market/useBid";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
-import { EXPLORER, GAS_SPONSORED, MARKET } from "@/lib/config";
+import { DEPLOYMENT, EXPLORER, GAS_SPONSORED, MARKET } from "@/lib/config";
 import { encodeFunctionData } from "viem";
 import { useRouter } from "next/navigation";
 import { PATCH_TIERS, patchedMarketAbi } from "@patched/shared";
@@ -193,6 +193,22 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
     if (!p || p.bought) return;
     focusSpot(p.id);
     if (minNext(p) === amount) void quickBid(p, amount);
+  }
+
+  /** A brand accepts the proof for its own patch. When every holder has answered, the creator is paid without waiting out the review. */
+  const [approving, setApproving] = useState<string | null>(null);
+  async function approveProof(milestone: number, patchId: number, label: string, key: string) {
+    setApproving(key);
+    try {
+      await send(MARKET, encodeFunctionData({ abi: patchedMarketAbi, functionName: "approveProof", args: [BigInt(listing.id), milestone, patchId] }));
+      await fetch("/api/indexer/sync", { method: "POST" });
+      toast(`You approved the proof for ${label}. The creator is paid as soon as every brand has answered.`);
+      router.refresh();
+    } catch (err) {
+      toast(friendlyError(err).replace("The bid didn't", "That didn't"));
+    } finally {
+      setApproving(null);
+    }
   }
 
   /** The bid from a spot's panel on the board, at the amount typed or picked. */
@@ -400,7 +416,7 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
             <EditableText
               editing={editing}
               value={pg.intro}
-              fallback={`${listing.title}. ${patches.length} logo spots on my ${surfaceWord}, each its own live auction. Brands bid in USDC, and the money sits in escrow until I show up.`}
+              fallback={`${listing.title}. ${patches.length} logo spots on my ${surfaceWord}, each its own live auction. Brands bid in stablecoins (USDC), and the money is held safely until I show up.`}
               maxLength={300}
               multiline
               onChange={(v) => setPg({ intro: v })}
@@ -652,16 +668,25 @@ export function ListingRoom({ initial, delivery: dw }: { initial: Wire<ListingVi
               return (
                 <div className="flex gap-2 flex-wrap mt-3">
                   {mine.map((r) => {
-                    const disputed = (m.disputedMask & (1 << r.patchId)) !== 0;
+                    const bit = 1 << r.patchId;
+                    const disputed = (m.disputedMask & bit) !== 0;
+                    const approved = (m.approvedMask & bit) !== 0;
                     const key = `${m.idx}:${r.patchId}`;
                     const label = patches.find((p) => p.id === r.patchId)?.label ?? `Patch ${r.patchId}`;
-                    return disputed ? (
-                      <Pill key={key} variant="out">You disputed {label}</Pill>
-                    ) : (
-                      <Button key={key} size="small" variant="ghost"
-                        onClick={() => setDisputeTarget({ milestone: m.idx, milestoneName: m.name, reviewEndsAt: m.reviewEndsAt, patchId: r.patchId, label })}>
-                        Dispute {label}
-                      </Button>
+                    if (disputed) return <Pill key={key} variant="out">You disputed {label}</Pill>;
+                    if (approved) return <Pill key={key} variant="won">You approved {label}</Pill>;
+                    return (
+                      <span key={key} className="inline-flex gap-2">
+                        {DEPLOYMENT.approvals && (
+                          <Button size="small" variant="primary" disabled={approving === key} onClick={() => approveProof(m.idx, r.patchId, label, key)}>
+                            {approving === key ? "Approving…" : `Approve ${label}`}
+                          </Button>
+                        )}
+                        <Button size="small" variant="ghost"
+                          onClick={() => setDisputeTarget({ milestone: m.idx, milestoneName: m.name, reviewEndsAt: m.reviewEndsAt, patchId: r.patchId, label })}>
+                          Dispute {label}
+                        </Button>
+                      </span>
                     );
                   })}
                 </div>

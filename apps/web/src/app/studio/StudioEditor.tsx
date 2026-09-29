@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Camera, Car, Check, ChevronDown, Lightbulb, Loader2, Plus, RefreshCw, Shirt, Sparkles, Trash2, Wand2 } from "lucide-react";
@@ -84,16 +84,28 @@ const STYLE_CHOICES: { key: string; label: string }[] = [
 ];
 const DAY = 86_400_000;
 const MIN = 60_000;
-/** How long bidding runs. The minute options are for demos, on the test network only. */
-const BID_OPTIONS = [
-  { ms: 5 * MIN, label: "5 min", demo: true },
-  { ms: 15 * MIN, label: "15 min", demo: true },
-  { ms: 60 * MIN, label: "1 hour", demo: true },
-  { ms: DAY, label: "1 day" },
-  { ms: 3 * DAY, label: "3 days" },
-  { ms: 5 * DAY, label: "5 days" },
-  { ms: 7 * DAY, label: "7 days" },
+/** How long bidding runs is typed in (a number and a unit); these are one-tap shortcuts. Minutes are for demos only. */
+const BID_UNITS = [
+  { unit: "min", label: "minutes", ms: MIN },
+  { unit: "hour", label: "hours", ms: 60 * MIN },
+  { unit: "day", label: "days", ms: DAY },
+] as const;
+type BidUnit = (typeof BID_UNITS)[number]["unit"];
+const BID_PRESETS: { n: number; unit: BidUnit; label: string; demo?: boolean }[] = [
+  { n: 5, unit: "min", label: "5 min", demo: true },
+  { n: 1, unit: "hour", label: "1 hour" },
+  { n: 1, unit: "day", label: "1 day" },
+  { n: 3, unit: "day", label: "3 days" },
+  { n: 7, unit: "day", label: "7 days" },
 ];
+/** The shortest and longest auction: a couple of minutes on the test network (for demos), an hour on the real one. */
+const bidLimits = (demo: boolean) => ({ min: demo ? 2 * MIN : 60 * MIN, max: 30 * DAY });
+const fmtDuration = (ms: number) => {
+  const mins = Math.round(ms / MIN);
+  if (mins % (24 * 60) === 0) return `${mins / (24 * 60)} day${mins === 24 * 60 ? "" : "s"}`;
+  if (mins % 60 === 0) return `${mins / 60} hour${mins === 60 ? "" : "s"}`;
+  return `${mins} min`;
+};
 const PROOF_STEPS = [
   { ms: 0, label: "Event dates" },
   { ms: 3 * MIN, label: "3 min apart" },
@@ -128,10 +140,20 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
   const [deal, setDeal] = useState<DealDraft>(() => defaultDraft("outfit"));
   const [title, setTitle] = useState("");
   const [eventId, setEventId] = useState<number>(events[0]?.id ?? 0);
-  const [bidMs, setBidMs] = useState(3 * DAY);
+  const [bidAmount, setBidAmount] = useState("3");
+  const [bidUnit, setBidUnit] = useState<BidUnit>("day");
   // Demo timing: minute-long auctions and proofs a few minutes apart, so a whole listing can be shown in one sitting.
   const [proofStepMs, setProofStepMs] = useState(0);
   const demo = CHAIN_ID === 10143;
+  const bidMs = Math.round((Number(bidAmount) || 0) * (BID_UNITS.find((u) => u.unit === bidUnit)?.ms ?? DAY));
+  const bidLimit = bidLimits(demo);
+  // The clock differs between server and browser, so "Ends ..." is shown only once the page is in the browser.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [styleKey, setStyleKey] = useState<string>("current");
@@ -160,7 +182,6 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
   const cap = Number(newCreatorCap) / 1e6;
   const event = events.find((e) => e.id === eventId);
   const buyNowTotal = patches.reduce((s, p) => s + p.buyNow, 0);
-  const selected = patches.find((p) => p.id === selectedId) ?? null;
   const sidePatches = patches.filter((p) => p.side === side);
   const plan = useMemo(() => planMilestones({ kind, draft: deal, biddingEndsAt: Date.now() + bidMs, event, demoStepMs: demo && proofStepMs ? proofStepMs : undefined }), [kind, deal, bidMs, event, demo, proofStepMs]);
   const publishing = step === "saving" || step === "approving" || step === "creating";
@@ -327,6 +348,8 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
     if (i === 0) {
       if (isIdea && !ideaText.trim()) return 'Say what your idea is, like "Laptop lid on stage".';
       if (!title.trim()) return "Give your listing a title.";
+      if (bidMs < bidLimit.min) return `Bidding has to run at least ${fmtDuration(bidLimit.min)}.`;
+      if (bidMs > bidLimit.max) return `Bidding can run at most ${fmtDuration(bidLimit.max)}.`;
     }
     if (i === 1) {
       if (!patches.length) return "Add at least one spot.";
@@ -455,9 +478,27 @@ export function StudioEditor({ events, minBond, newCreatorCap }: { events: Studi
                       <option value={0}>No specific event</option>
                     </select>
                   </Field>
-                  <div className="grid gap-1.5">
+                  <div className="grid gap-1.5 min-w-0">
                     <span className="field-label">Bidding runs for</span>
-                    <Pills value={bidMs} onPick={setBidMs} label="Bidding runs for" options={BID_OPTIONS.filter((o) => demo || !o.demo).map((o) => ({ value: o.ms, label: o.label }))} />
+                    <div className="flex gap-2 min-w-0">
+                      <input
+                        inputMode="decimal"
+                        aria-label="How long bidding runs"
+                        value={bidAmount}
+                        onChange={(e) => setBidAmount(e.target.value.replace(/[^\d.]/g, "").slice(0, 5))}
+                        className={cn(INPUT, "w-24 flex-none font-mono text-center", bidMs < bidLimit.min || bidMs > bidLimit.max ? "!border-[var(--red)]" : "")}
+                      />
+                      <Pills value={bidUnit} onPick={setBidUnit} label="Unit" options={BID_UNITS.filter((u) => demo || u.unit !== "min").map((u) => ({ value: u.unit, label: u.label }))} />
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {BID_PRESETS.filter((q) => demo || !q.demo).map((q) => (
+                        <button key={q.label} type="button" onClick={() => { setBidAmount(String(q.n)); setBidUnit(q.unit); }}
+                          className="h-7 px-2.5 rounded-full border-[1.5px] border-[var(--soft)] text-xs font-semibold hover:border-[var(--muted)]">{q.label}</button>
+                      ))}
+                    </div>
+                    <span className={cn("text-xs", bidMs < bidLimit.min || bidMs > bidLimit.max ? "text-[var(--red)]" : "text-[var(--muted)]")}>
+                      {bidMs < bidLimit.min ? `At least ${fmtDuration(bidLimit.min)}.` : bidMs > bidLimit.max ? `At most ${fmtDuration(bidLimit.max)}.` : `Ends ${now ? new Date(now + bidMs).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}`}
+                    </span>
                   </div>
                 </div>
               </>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BaseError, ContractFunctionRevertedError, createWalletClient, custom, encodeFunctionData, erc20Abi, parseSignature } from "viem";
+import { BaseError, ContractFunctionRevertedError, createWalletClient, custom, encodeFunctionData, erc20Abi } from "viem";
 import { CONTRACT_ERRORS, patchedMarketAbi } from "@patched/shared";
 import { CHAIN, CHAIN_ID, MARKET, USDC, publicClient, GAS_SPONSORED, TEST_TOKEN } from "@/lib/config";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
@@ -44,13 +44,12 @@ export function friendlyError(err: unknown): string {
 }
 
 /**
- * Real bid: one USDC permit signature + one transaction (bidWithPermit). With the Privy embedded
- * wallet the transaction is gas-sponsored and silent; with an external wallet (MetaMask etc.) the user
- * signs in their wallet and pays a little MON. The call is simulated first so a stale bid fails fast
- * with a clear reason.
+ * Real bid on Arc: approve the market for the amount (only when the allowance is short), then `bid`. Circle's
+ * batched user operation will fold both into one confirmation; until then it's up to two transactions. The call
+ * is simulated first so a stale bid fails fast with a clear reason. Gas on Arc is paid in USDC.
  */
 export function useBid() {
-  const { walletAddress, wallet, isEmbeddedWallet, authenticated, login, signTypedData, sendTransaction } = usePatchedAuth();
+  const { walletAddress, wallet, isEmbeddedWallet, authenticated, login, sendTransaction } = usePatchedAuth();
   const stepUp = useStepUp();
   const [status, setStatus] = useState<TxStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -68,57 +67,36 @@ export function useBid() {
       // Big bids: passkey check through Privy MFA before anything is signed.
       await stepUp.ensure(amount);
       setStatus("signing");
-      const [balance, nonce, name, version] = await Promise.all([
+      const [balance, allowance] = await Promise.all([
         publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [walletAddress] }),
-        publicClient.readContract({ address: USDC, abi: permitAbi, functionName: "nonces", args: [walletAddress] }),
-        publicClient.readContract({ address: USDC, abi: permitAbi, functionName: "name" }),
-        publicClient.readContract({ address: USDC, abi: permitAbi, functionName: "version" }),
+        publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "allowance", args: [walletAddress, MARKET] }),
       ]);
       if (balance < amount) throw new Error("insufficient USDC");
 
-      // External wallets pay their own gas; check before asking them to sign anything.
       let external: ReturnType<typeof createWalletClient> | null = null;
-      const paysGas = !GAS_SPONSORED || (!isEmbeddedWallet && !!wallet);
-      if (paysGas && (await publicClient.getBalance({ address: walletAddress })) === 0n) throw new Error("no gas");
       if (!isEmbeddedWallet && wallet) {
         await wallet.switchChain(CHAIN_ID);
         external = createWalletClient({ account: walletAddress, chain: CHAIN, transport: custom(await wallet.getEthereumProvider()) });
       }
-
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
-      const typedData = {
-        domain: { name, version, chainId: CHAIN_ID, verifyingContract: USDC },
-        types: {
-          Permit: [
-            { name: "owner", type: "address" },
-            { name: "spender", type: "address" },
-            { name: "value", type: "uint256" },
-            { name: "nonce", type: "uint256" },
-            { name: "deadline", type: "uint256" },
-          ],
-        },
-        primaryType: "Permit" as const,
-        message: { owner: walletAddress, spender: MARKET, value: amount, nonce, deadline },
+      const send = async (to: `0x${string}`, data: `0x${string}`) => {
+        const txHash = external
+          ? await external.sendTransaction({ account: walletAddress, chain: CHAIN, to, data })
+          : (await sendTransaction({ to, data, chainId: CHAIN_ID }, { sponsor: GAS_SPONSORED })).hash;
+        setHash(txHash);
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+        if (receipt.status !== "success") throw new Error("reverted");
       };
-      const signature = external
-        ? await external.signTypedData({ ...typedData, account: walletAddress })
-        : (await signTypedData(typedData)).signature;
-      const { v, r, s } = parseSignature(signature as `0x${string}`);
-      const args = [BigInt(listingId), patchId, amount, deadline, Number(v), r, s] as const;
 
+      if (allowance < amount) {
+        await send(USDC, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [MARKET, amount] }));
+      }
+
+      const args = [BigInt(listingId), patchId, amount] as const;
       // Fail fast with the contract's own reason (e.g. someone just outbid you).
-      await publicClient.simulateContract({
-        address: MARKET, abi: patchedMarketAbi, functionName: "bidWithPermit", args, account: walletAddress,
-      });
+      await publicClient.simulateContract({ address: MARKET, abi: patchedMarketAbi, functionName: "bid", args, account: walletAddress });
 
       setStatus("confirming");
-      const data = encodeFunctionData({ abi: patchedMarketAbi, functionName: "bidWithPermit", args });
-      const txHash = external
-        ? await external.sendTransaction({ account: walletAddress, chain: CHAIN, to: MARKET, data })
-        : (await sendTransaction({ to: MARKET, data, chainId: CHAIN_ID }, { sponsor: GAS_SPONSORED })).hash;
-      setHash(txHash);
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-      if (receipt.status !== "success") throw new Error("reverted");
+      await send(MARKET, encodeFunctionData({ abi: patchedMarketAbi, functionName: "bid", args }));
 
       setStatus("done");
       // Let the indexer pick it up right away instead of waiting for the next scheduled run.

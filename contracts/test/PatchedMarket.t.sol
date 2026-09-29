@@ -233,32 +233,6 @@ contract BiddingTest is BaseTest {
         assertEq(market.getListing(id).biddingEndsAt, biddingEnd);
     }
 
-    function test_bidWithPermit() public {
-        (address signer, uint256 pk) = makeAddrAndKey("permitBrand");
-        usdc.mint(signer, 1_000e6);
-        uint256 deadline = block.timestamp + 1 hours;
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                usdc.DOMAIN_SEPARATOR(),
-                keccak256(
-                    abi.encode(
-                        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
-                        signer,
-                        address(market),
-                        uint256(FLOOR),
-                        usdc.nonces(signer),
-                        deadline
-                    )
-                )
-            )
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
-        vm.prank(signer);
-        market.bidWithPermit(id, 1, FLOOR, deadline, v, r, s);
-        assertEq(market.getPatch(id, 1).topBidder, signer);
-    }
-
     function testFuzz_bid_neverBelowMinimum(uint96 first, uint96 second) public {
         first = uint96(bound(first, FLOOR, BUY_NOW - 1));
         _bid(alice, id, 0, first);

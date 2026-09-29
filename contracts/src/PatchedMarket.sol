@@ -2,7 +2,6 @@
 pragma solidity 0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -10,6 +9,7 @@ import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/acce
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IPatchReceipt} from "./interfaces/IPatchReceipt.sol";
+import {PayeesLib} from "./PayeesLib.sol";
 
 /// @title PatchedMarket
 /// @notice Creators list patches (logo spots) on an outfit, car or team hoodie. Every patch is an
@@ -337,7 +337,7 @@ contract PatchedMarket is
         }
         if (reputation[msg.sender].completed == 0 && capSum > newCreatorCap) revert OverNewCreatorCap();
 
-        _setPayees(id, p.payees, p.shares);
+        PayeesLib.set(_payees, _shares, id, p.payees, p.shares);
 
         usdc.safeTransferFrom(msg.sender, address(this), p.bond);
         emit ListingCreated(
@@ -390,16 +390,6 @@ contract PatchedMarket is
 
     /// @notice Bid on one patch. `amount >= buyNow` buys the patch outright at the buy-now price.
     function bid(uint256 id, uint8 patchId, uint96 amount) external whenNotPaused nonReentrant {
-        _bid(id, patchId, amount);
-    }
-
-    /// @notice EIP-2612 permit + bid in one transaction. A failed permit is ignored if allowance already exists.
-    function bidWithPermit(uint256 id, uint8 patchId, uint96 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
-        external
-        whenNotPaused
-        nonReentrant
-    {
-        try IERC20Permit(address(usdc)).permit(msg.sender, address(this), amount, deadline, v, r, s) {} catch {}
         _bid(id, patchId, amount);
     }
 
@@ -752,9 +742,6 @@ contract PatchedMarket is
         return _milestones[id][milestone];
     }
 
-    function getPayees(uint256 id) external view returns (address[] memory, uint16[] memory) {
-        return (_payees[id], _shares[id]);
-    }
 
     /// @notice Lowest amount that takes the lead on a patch (capped at its buy-now price).
     function minNextBid(uint256 id, uint8 patchId) external view returns (uint96) {
@@ -895,23 +882,6 @@ contract PatchedMarket is
             left -= part;
             _send(payees[i], part);
         }
-    }
-
-    function _setPayees(uint256 id, address[] calldata payees, uint16[] calldata shares) internal {
-        uint256 n = payees.length;
-        if (n == 0) {
-            if (shares.length != 0) revert InvalidParams();
-            return;
-        }
-        if (n > MAX_PAYEES || shares.length != n) revert InvalidParams();
-        uint256 sum;
-        for (uint256 i; i < n; ++i) {
-            if (payees[i] == address(0) || shares[i] == 0) revert InvalidParams();
-            sum += shares[i];
-        }
-        if (sum != BPS) revert InvalidParams();
-        _payees[id] = payees;
-        _shares[id] = shares;
     }
 
     /// @dev Push USDC, or credit it to `refundable` if the transfer fails (e.g. a blocked address),

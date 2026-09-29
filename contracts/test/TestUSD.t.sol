@@ -42,7 +42,7 @@ contract TestUSDTest is Test {
         assertEq(token.balanceOf(alice), 2_000e6);
     }
 
-    /// The market's bidWithPermit path works with this token's permit.
+    /// This token's permit works for the market as spender.
     function test_permitWorksWithMarket() public {
         PatchReceipt receipt = new PatchReceipt();
         (PatchedMarket market,) = MarketFactory.deploy(IERC20(address(token)), IPatchReceipt(address(receipt)), address(this), address(this));

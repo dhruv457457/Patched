@@ -186,49 +186,6 @@ export const patchedMarketAbi = [
   },
   {
     "type": "function",
-    "name": "bidWithPermit",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "patchId",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "amount",
-        "type": "uint96",
-        "internalType": "uint96"
-      },
-      {
-        "name": "deadline",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "v",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "r",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "s",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "brandName",
     "inputs": [
       {
@@ -796,30 +753,6 @@ export const patchedMarketAbi = [
             "internalType": "bytes32"
           }
         ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getPayees",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "",
-        "type": "uint16[]",
-        "internalType": "uint16[]"
       }
     ],
     "stateMutability": "view"

@@ -110,6 +110,7 @@ Arc is Circle's L1 for stablecoin finance. Patched is a USDC-native marketplace,
 | **Fast finality** | A bid is final in under a second, so live auctions, outbid refunds and the anti-snipe clock feel instant. | Live on Arc testnet |
 | **Upgradeable market** | `PatchedMarket` runs behind a UUPS proxy (sized under Arc's 24 KB contract limit), so fixes keep the same address and escrowed money. | Live on Arc testnet |
 | **Wallets by Privy** | Sign in with X or email; Privy makes the wallet. Arc is a supported chain for Privy wallets. | Working |
+| **Auto-bid from the brand's own wallet (Privy signers)** | "Keep me on top up to $X" adds our key quorum to the brand's Privy wallet as a signer, limited by a Privy policy: `bid` on the chosen spots only, never above the maximum, and `approve` of the market up to the largest maximum. When the brand is outbid, the keeper bids from their wallet within seconds, and the wallet pays that gas in USDC. One-tap revoke in Settings. Outside wallets (MetaMask) use the `PatchAutoBidder` contract instead. | Built, testing on Arc testnet |
 | **Campaign rules on-chain** | A `PatchCampaign` contract holds a brand's budget and enforces the brand as bidder, a per-spot maximum, an end time and the total. Anyone can read the rules. | To build |
 | **Arc mainnet** | The same contracts on chain 5042 with Arc's USDC. | After testnet |
 

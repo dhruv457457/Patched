@@ -46,7 +46,8 @@ Creators sell ad space on things people look at: their outfit at an event, their
 - **One-tap rebid.** The outbid toast has a "Bid $X" button that bids the new minimum in one tap.
 - **Verified brand badge.** Link your work email. If its domain matches your website, your bids and patches show "Verified brand".
 - **Brand profile.** Your brand name and logo appear on the patches you lead.
-- **Campaigns.** "Spend up to $300 at Token2049, never more than $40 a spot, until the event ends." A campaign wallet bids across the event for you, cheapest spots first (or prime spots only), and returns what's left at the end. You see its rules in plain words, and on Arc they move into an on-chain campaign contract anyone can read.
+- **Campaigns.** "Spend up to $300 at Token2049, never more than $40 a spot, until the event ends." A campaign wallet bids across the event for you, cheapest spots first (or prime spots only), and returns what's left at the end. Its rules are a Privy policy you can read in plain words or as JSON, and Privy itself keeps the running total within the budget.
+- **Patch anyone on X.** Offer money to any X account for a spot at an event, even if they've never used Patched. Privy creates their account and wallet on the spot; the offer waits in its own policy-limited wallet, can pay their listing stake if their wallet is empty, and buys their spot when they list. Share the offer on X in one tap.
 - **Bids tab.** Spots you lead, spots where you were outbid, your receipts, and resale, on your profile.
 
 ### Live auctions

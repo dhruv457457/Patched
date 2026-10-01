@@ -35,7 +35,7 @@ export const EXPLORER = CHAIN.blockExplorers.default.url;
 
 /**
  * Testnet and mainnet run as two sites from this same code. The navbar's network switch sends people to the
- * other one; set both URLs in production (the defaults are the two local dev servers).
+ * other one; set both URLs in production (testnet: https://arc.patched.world). The defaults are local dev servers.
  */
 export const NETWORK_SITES: Record<5042002 | 5042, { label: string; url: string }> = {
   5042002: { label: "Testnet", url: process.env.NEXT_PUBLIC_TESTNET_URL ?? "http://localhost:3100" },

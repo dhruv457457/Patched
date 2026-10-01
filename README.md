@@ -100,21 +100,20 @@ Creators sell ad space on things people look at: their outfit at an event, their
 - **Themes and motion.** Light and dark themes. Every animation respects reduced-motion settings.
 - **USDC only.** No banks or fiat anywhere: wallets hold USDC, and on Arc gas is paid in USDC too, so nobody needs a second token.
 
-## How Patched uses Arc and Circle
+## How Patched uses Arc
 
 Arc is Circle's L1 for stablecoin finance. Patched is a USDC-native marketplace, so it fits: brands only ever hold dollars.
 
 | | What it does in Patched | Status |
 |---|---|---|
-| **USDC as gas (Arc)** | Brands and creators hold one token. Bids, escrow, payouts and gas are all USDC. | Contracts: deploying next. |
-| **Instant finality (Arc)** | A bid is final in under a second, so live auctions, outbid refunds and the anti-snipe clock feel instant. | With the contracts. |
-| **Circle Modular Wallets** | A passkey wallet made at sign-in. A bid is one passkey tap: `approve` + `bid` batched into one user operation. | Replacing the current wallets. |
-| **Circle Gas Station** | Sponsors gas for user wallets, so a new brand can bid with exactly the USDC they brought. | With the wallets. |
-| **Circle developer-controlled wallets** | The keeper that closes auctions, releases milestone payouts and runs auto-bids. Every request carries Circle's required idempotency key, and states arrive by webhook. | Replacing the current keeper wallet. |
-| **Campaign rules on-chain** | A brand's campaign budget sits in a `PatchCampaign` contract that enforces the brand as bidder, a per-spot maximum, an end time and the total budget. Anyone can read the rules. | To build. |
-| **Gateway / CCTP** | "Fund your bids from any chain": bring USDC from Base, Ethereum or Arbitrum into one balance on Arc. | Planned. |
+| **USDC as gas** | Brands and creators hold one token. Bids, escrow, payouts and gas are all USDC, from the same balance. | Live on Arc testnet |
+| **Fast finality** | A bid is final in under a second, so live auctions, outbid refunds and the anti-snipe clock feel instant. | Live on Arc testnet |
+| **Upgradeable market** | `PatchedMarket` runs behind a UUPS proxy (sized under Arc's 24 KB contract limit), so fixes keep the same address and escrowed money. | Live on Arc testnet |
+| **Wallets by Privy** | Sign in with X or email; Privy makes the wallet. Arc is a supported chain for Privy wallets. | Working |
+| **Campaign rules on-chain** | A `PatchCampaign` contract holds a brand's budget and enforces the brand as bidder, a per-spot maximum, an end time and the total. Anyone can read the rules. | To build |
+| **Arc mainnet** | The same contracts on chain 5042 with Arc's USDC. | After testnet |
 
-The full feature-by-feature plan, Arc's USDC quirks (6 vs 18 decimals, the permit domain) and the timeline are in [docs/arc-plan.md](docs/arc-plan.md).
+Gas: Privy doesn't sponsor gas on Arc, so every wallet pays its own gas in USDC. On Arc that's the same dollars a brand bids with, so nobody needs a second token.
 
 ## Contracts
 

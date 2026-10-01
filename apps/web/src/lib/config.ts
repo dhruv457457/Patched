@@ -21,7 +21,7 @@ export const USDC = deployment.usdc;
 export const TEST_TOKEN = deployment.testToken === true;
 export { USDC_DECIMALS };
 
-/** Whether gas is sponsored for user wallets (Circle Gas Station). Off: every wallet pays its own gas in USDC. */
+/** Whether gas is sponsored for user wallets. Off on Arc (Privy has no Arc sponsorship): every wallet pays its own gas in USDC. */
 export const GAS_SPONSORED = process.env.NEXT_PUBLIC_GAS_SPONSORED !== "false";
 
 export const EXPLORER = CHAIN.blockExplorers.default.url;

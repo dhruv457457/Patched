@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, ChevronDown, ChevronRight, Fingerprint, Loader2, Lock, Mail, ShieldCheck, Smartphone, Sparkles, Wallet, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { StoryPanel } from "@/components/brand/StoryPanel";
-import { ArcLogo, CircleLogo } from "@/components/brand/PartnerLogos";
+import { ArcLogo, PrivyLogo } from "@/components/brand/PartnerLogos";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { useProfile } from "@/lib/profile";
 import { useInjectedWallets, type InjectedWallet } from "@/lib/injectedWallets";
@@ -77,7 +77,7 @@ export function WelcomeView() {
         <h1 className="font-display font-extrabold text-[clamp(44px,6vw,76px)] lg:text-[clamp(36px,min(5.4vw,8.5vh),76px)] leading-[0.92] tracking-[-0.05em] flex-none">Get patched.<br />Get paid.</h1>
         <StoryPanel className="max-w-[600px] w-full lg:flex-1 lg:min-h-0" />
         <p className="flex items-center gap-2 text-sm flex-none">
-          <Lock size={15} className="flex-none" /> <span className="inline-flex items-center gap-1.5 flex-wrap">Built on <ArcLogo height={15} /> with wallets by <CircleLogo height={15} /></span>
+          <Lock size={15} className="flex-none" /> <span className="inline-flex items-center gap-1.5 flex-wrap">Built on <ArcLogo height={15} /> with wallets by <PrivyLogo height={15} /></span>
         </p>
       </section>
 

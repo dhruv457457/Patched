@@ -44,8 +44,8 @@ export function friendlyError(err: unknown): string {
 }
 
 /**
- * Real bid on Arc: approve the market for the amount (only when the allowance is short), then `bid`. Circle's
- * batched user operation will fold both into one confirmation; until then it's up to two transactions. The call
+ * Real bid on Arc: approve the market for the amount (only when the allowance is short), then `bid`. That's up to two
+ * transactions; gas comes out of the same USDC. The call
  * is simulated first so a stale bid fails fast with a clear reason. Gas on Arc is paid in USDC.
  */
 export function useBid() {

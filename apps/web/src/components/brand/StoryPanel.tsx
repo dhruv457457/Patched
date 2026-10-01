@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 const SCENE_MS = 2900;
 const CHAPTERS = [
-  { kicker: "Sign in", caption: "Sign in. Circle makes your wallet in a second." },
+  { kicker: "Sign in", caption: "Sign in with X. Privy makes your wallet in a second." },
   { kicker: "Draw your spots", caption: "Snap an outfit, a car or a team hoodie. AI cleans it up, you draw the spots." },
   { kicker: "Brands bid", caption: "Brands bid with one tap. Gas is paid in USDC, on Arc." },
   { kicker: "Show up", caption: "Wear it at the event. Post the photo on X." },

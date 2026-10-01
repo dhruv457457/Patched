@@ -14,7 +14,7 @@ import {
 } from "motion/react";
 import NumberFlow from "@number-flow/react";
 import { EASE, Reveal } from "@/components/ui/Reveal";
-import { ArcLogo, ArcMark, CircleLogo } from "@/components/brand/PartnerLogos";
+import { ArcLogo, ArcMark, PrivyLogo } from "@/components/brand/PartnerLogos";
 import { PoweredBy } from "@/components/brand/PoweredBy";
 import { StoryPanel } from "@/components/brand/StoryPanel";
 import type { SceneKind, SceneLogo } from "@/components/brand/PatchScene";
@@ -502,7 +502,7 @@ function Footer() {
         <span className="hidden sm:inline">Get patched. Get paid.</span>
       </div>
       <span className="flex items-center gap-2">
-        Built on <ArcLogo height={15} /> with <CircleLogo height={15} />
+        Built on <ArcLogo height={15} /> with <PrivyLogo height={15} />
       </span>
     </footer>
   );

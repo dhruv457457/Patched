@@ -2,6 +2,11 @@
 
 Researched 2026-09-29. This is for the **separate mirrored repo** (see AGENTS.md: "a mirrored repo for Arc (Circle) Microgrants on Arc mainnet").
 
+> **Decision, Oct 1 2026: stay on Privy.** Circle wallets on Arc mainnet need a paid Circle Console upgrade, so the
+> Arc build keeps Privy for sign-in and wallets (Arc is a supported chain for Privy). Privy has no gas sponsorship on
+> Arc, so wallets pay their own gas in USDC. The Circle wallet sections below are kept for reference only.
+> We build and test on Arc testnet, then deploy to Arc mainnet.
+
 ## The grant in one paragraph
 
 - **Prize:** 20 microgrants of 500 USDC each.

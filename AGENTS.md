@@ -25,7 +25,7 @@ Full product spec: [docs/SPEC.md](docs/SPEC.md). Contract API: [docs/contracts.m
 ## Hackathon context
 
 - **Arc Microgrants (Circle, on DoraHacks)** — submissions close **Oct 14 2026, 23:59 ET**, reviews are rolling. Needs a **live deployment on Arc mainnet**, a public repo, a clear description of what Arc is used for, and a public builder profile. Judged on relevance to Arc, technical credibility, build quality and whether it's worth taking further.
-- This repo is the **Arc build** of Patched: Arc mainnet and testnet, Circle wallets, USDC as gas. The plan, feature by feature, is [docs/arc-plan.md](docs/arc-plan.md).
+- This repo is the **Arc build** of Patched: Arc mainnet and testnet, Privy wallets, USDC as gas (we build on testnet, then deploy to mainnet). The plan, feature by feature, is [docs/arc-plan.md](docs/arc-plan.md).
 - Keep chain-specific values in config (`packages/shared`), never hard-coded.
 
 ## Repo layout and ownership
@@ -50,7 +50,7 @@ Rules:
 
 - pnpm workspaces, Node 22, TypeScript strict everywhere.
 - Contracts: Solidity 0.8.28, Foundry, OpenZeppelin v5.4.
-- Web: Next.js (App Router) + React 19, Tailwind CSS v4, `motion` (motion.dev), `@number-flow/react`, `react-konva`, `sonner`, `lucide-react` icons, `viem`, Circle wallets (replacing `@privy-io/react-auth`), Supabase JS (reads + Realtime).
+- Web: Next.js (App Router) + React 19, Tailwind CSS v4, `motion` (motion.dev), `@number-flow/react`, `react-konva`, `sonner`, `lucide-react` icons, `viem`, `@privy-io/react-auth`, Supabase JS (reads + Realtime).
 - Chain: Arc testnet (5042002) and mainnet (5042). USDC `0x3600000000000000000000000000000000000000`: 6 decimals through the ERC-20 interface, 18 as the native gas balance (the same money). RPC in `ARC_TESTNET_RPC_URL` / `ARC_RPC_URL`.
 - AI: **OpenRouter only**, through `packages/ai` (owned by Claude), using the cheapest model that does each job (models set by env vars). Called only from server routes, never from the browser.
 

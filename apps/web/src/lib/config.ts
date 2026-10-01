@@ -23,6 +23,11 @@ export { USDC_DECIMALS };
 
 /** Whether gas is sponsored for user wallets. Off on Arc (Privy has no Arc sponsorship): every wallet pays its own gas in USDC. */
 export const GAS_SPONSORED = process.env.NEXT_PUBLIC_GAS_SPONSORED !== "false";
+/**
+ * On Arc, gas comes out of the same USDC a wallet bids with. When gas isn't sponsored, balance checks keep this much
+ * (6-decimal USDC, $0.05) aside so a bid of exactly the balance doesn't fail on gas.
+ */
+export const GAS_RESERVE = GAS_SPONSORED ? 0n : 50_000n;
 
 export const EXPLORER = CHAIN.blockExplorers.default.url;
 

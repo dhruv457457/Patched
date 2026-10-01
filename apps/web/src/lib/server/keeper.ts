@@ -4,7 +4,7 @@ import postgres from "postgres";
 import { PrivyClient } from "@privy-io/node";
 import { patchAutoBidderAbi, patchedMarketAbi } from "@patched/shared";
 import { syncChain } from "@patched/indexer";
-import { AUTO_BIDDER, CHAIN_ID, MARKET, USDC, serverClient, serverRpcUrl } from "@/lib/config";
+import { AUTO_BIDDER, CHAIN_ID, GAS_RESERVE, MARKET, USDC, serverClient, serverRpcUrl } from "@/lib/config";
 import { supabaseAdmin } from "@/lib/supabase";
 import { runCampaigns } from "./campaigns";
 import { isPolicyViolation, sendFromServerWallet } from "./privy";
@@ -126,7 +126,7 @@ async function notifyPaused(results: KeeperAction[]) {
         client.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [brand] }),
         spender ? client.readContract({ address: USDC, abi: erc20Abi, functionName: "allowance", args: [brand, spender] }) : Promise.resolve(maxUint256),
       ]).catch(() => [0n, 1n, 1n] as const);
-      return balance < need ? "balance" : allowance < need ? "allowance" : null;
+      return balance < need + (r.via === "signer" ? GAS_RESERVE : 0n) ? "balance" : allowance < need ? "allowance" : null;
     }),
   );
   const rows = skipped
@@ -216,7 +216,7 @@ async function executeSignerBid(job: Omit<KeeperAction, "status">): Promise<Keep
       client.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [brand] }),
       client.readContract({ address: USDC, abi: erc20Abi, functionName: "allowance", args: [brand, MARKET] }),
     ]);
-    if (balance < amount) return { ...job, status: "skipped", reason: "not enough USDC" };
+    if (balance < amount + GAS_RESERVE) return { ...job, status: "skipped", reason: "not enough USDC" };
 
     if (allowance < amount) {
       const approve = await sendFromServerWallet(

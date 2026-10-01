@@ -19,7 +19,7 @@ for (const line of readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/)
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
 }
 
-const chainId = 10143;
+const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 10143);
 const d = DEPLOYMENTS[chainId]!;
 const LISTING = 1;
 const PATCH = 0;
@@ -75,7 +75,7 @@ try {
       const res = await privy.wallets().ethereum().sendTransaction(account.id, {
         caip2: `eip155:${chainId}`,
         params: { transaction: { to: a.to, data: a.data, chain_id: chainId } },
-        sponsor: true,
+        sponsor: process.env.KEEPER_GAS_SPONSORED !== "false",
         authorization_context: auth,
       });
       allowed = true;

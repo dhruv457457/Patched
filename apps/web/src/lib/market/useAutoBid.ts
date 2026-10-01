@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { encodeFunctionData, erc20Abi } from "viem";
 import { patchAutoBidderAbi } from "@patched/shared";
-import { AUTO_BIDDER, USDC, publicClient } from "@/lib/config";
+import { AUTO_BIDDER, USDC, publicClient, GAS_RESERVE } from "@/lib/config";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { friendlyError } from "@/lib/market/useBid";
 import { usePermitSigner } from "@/lib/market/permit";
@@ -89,7 +89,7 @@ export function useAutoBid() {
     return run(async () => {
       if (!walletAddress || !mode) throw new Error("not signed in");
       const balance = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [walletAddress] });
-      if (balance < max) throw new Error("insufficient USDC");
+      if (balance < max + (mode === "signer" ? GAS_RESERVE : 0n)) throw new Error("insufficient USDC");
       // A high maximum lets Patched spend that much for you, so it gets the same passkey check as a big bid.
       await stepUp.ensure(max);
 
@@ -142,7 +142,7 @@ export function useAutoBid() {
     async (need: bigint): Promise<"ok" | "balance" | "allowance"> => {
       if (!walletAddress || !mode) return "ok";
       const balance = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [walletAddress] });
-      if (balance < need) return "balance";
+      if (balance < need + (mode === "signer" ? GAS_RESERVE : 0n)) return "balance";
       if (mode === "signer") return "ok";
       const allowance = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "allowance", args: [walletAddress, AUTO_BIDDER!] });
       return allowance < need ? "allowance" : "ok";

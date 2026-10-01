@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { formatUsdc } from "@/lib/format";
-import { SWEEPER, USDC, publicClient } from "@/lib/config";
+import { SWEEPER, USDC, publicClient, GAS_RESERVE } from "@/lib/config";
 import type { LivePatch } from "@/lib/market/types";
 import { friendlyError } from "@/lib/market/useBid";
 import { usePermitSigner } from "@/lib/market/permit";
@@ -58,7 +58,7 @@ export function SweepPanel({ listingId, patches, minNext, me }: Props) {
       const ids = chosen.map((p) => p.id);
       const amounts = chosen.map((p) => minNext(p));
       const balance = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [walletAddress!] });
-      if (balance < total) throw new Error("insufficient USDC");
+      if (balance < total + GAS_RESERVE) throw new Error("insufficient USDC");
       await stepUp.ensure(total);
       const { deadline, v, r, s } = await signPermit(SWEEPER!, total);
       // Fail fast with the contract's own reason (e.g. someone just outbid one of the picks).

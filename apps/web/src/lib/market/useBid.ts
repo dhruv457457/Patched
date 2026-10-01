@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { BaseError, ContractFunctionRevertedError, createWalletClient, custom, encodeFunctionData, erc20Abi } from "viem";
 import { CONTRACT_ERRORS, patchedMarketAbi } from "@patched/shared";
-import { CHAIN, CHAIN_ID, MARKET, USDC, publicClient, GAS_SPONSORED, TEST_TOKEN } from "@/lib/config";
+import { CHAIN, CHAIN_ID, MARKET, USDC, publicClient, GAS_SPONSORED, TEST_TOKEN, GAS_RESERVE } from "@/lib/config";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { STEP_UP_USD, useStepUp } from "@/lib/market/stepUp";
 
@@ -71,7 +71,7 @@ export function useBid() {
         publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [walletAddress] }),
         publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "allowance", args: [walletAddress, MARKET] }),
       ]);
-      if (balance < amount) throw new Error("insufficient USDC");
+      if (balance < amount + GAS_RESERVE) throw new Error("insufficient USDC");
 
       let external: ReturnType<typeof createWalletClient> | null = null;
       if (!isEmbeddedWallet && wallet) {

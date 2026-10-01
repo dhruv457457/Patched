@@ -1,5 +1,5 @@
 // Which chain and contracts this build talks to. Everything chain-specific comes from here.
-import { createPublicClient, http, type PublicClient } from "viem";
+import { createPublicClient, fallback, http, type PublicClient } from "viem";
 import { arcMainnet, arcTestnet, DEPLOYMENTS, USDC_DECIMALS } from "@patched/shared";
 
 export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 5042002) as 5042002 | 5042;
@@ -42,8 +42,15 @@ export const NETWORK_SITES: Record<5042002 | 5042, { label: string; url: string 
   5042: { label: "Mainnet", url: process.env.NEXT_PUBLIC_MAINNET_URL ?? "http://localhost:3200" },
 };
 
-/** Browser-safe client on the public RPC. Server code uses serverClient() with the private QuickNode URL. */
-export const publicClient = createPublicClient({ chain: CHAIN, transport: http() }) as PublicClient;
+/**
+ * Browser-side chain reads. In the browser they go through our own /api/rpc (read-only, forwarded to our RPC) first:
+ * ad blockers block every *.arc.io request, so Arc's public RPC can't be relied on from a visitor's browser. Arc's
+ * public RPC stays as the fallback. Server code uses serverClient() with the private QuickNode URL.
+ */
+export const publicClient = createPublicClient({
+  chain: CHAIN,
+  transport: typeof window === "undefined" ? http() : fallback([http(`${window.location.origin}/api/rpc`), http()]),
+}) as PublicClient;
 
 export function serverRpcUrl(): string {
   const url = CHAIN_ID === 5042 ? process.env.ARC_RPC_URL : process.env.ARC_TESTNET_RPC_URL;

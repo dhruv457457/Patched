@@ -11,6 +11,11 @@ export interface PatchedDeployment {
   autoBidderBlock?: number;
   /** PatchSweeper for this market (several patches in one transaction). */
   sweeper?: Address;
+  /**
+   * Arc's predeployed Multicall3From: batches calls while keeping the sending wallet as `msg.sender` for each one
+   * (through Arc's CallFrom precompile). Lets a bid be approve + bid in one transaction. Wallets must call it directly.
+   */
+  multicallFrom?: Address;
   /** True once this market has `approveProof` and `minDisputeWindow` (brands can accept a proof early). */
   approvals?: boolean;
   /** True when `usdc` is the TestUSD faucet token rather than real USDC. */
@@ -28,6 +33,7 @@ export const DEPLOYMENTS: Record<number, PatchedDeployment | undefined> = {
     autoBidder: "0x8E150895a6269D9701974fCfB1d6307dC28B8488",
     autoBidderBlock: 64588026,
     sweeper: "0xf0EEb561b1Fcf475FaCdFf00229a0fE363815aBB",
+    multicallFrom: "0x522fAf9A91c41c443c66765030741e4AaCe147D0",
     approvals: true,
   },
   // Arc mainnet (5042): after the testnet run.

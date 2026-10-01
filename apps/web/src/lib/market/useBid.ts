@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { BaseError, ContractFunctionRevertedError, createWalletClient, custom, encodeFunctionData, erc20Abi } from "viem";
 import { CONTRACT_ERRORS, patchedMarketAbi } from "@patched/shared";
-import { CHAIN, CHAIN_ID, MARKET, USDC, publicClient, GAS_SPONSORED, TEST_TOKEN, GAS_RESERVE } from "@/lib/config";
+import { CHAIN, CHAIN_ID, MARKET, USDC, publicClient, GAS_SPONSORED, TEST_TOKEN, GAS_RESERVE, MULTICALL_FROM } from "@/lib/config";
+import { batchedBids, multicallFromAbi } from "@/lib/market/batch";
 import { usePatchedAuth } from "@/components/providers/PrivyAuthProvider";
 import { STEP_UP_USD, useStepUp } from "@/lib/market/stepUp";
 
@@ -44,9 +45,9 @@ export function friendlyError(err: unknown): string {
 }
 
 /**
- * Real bid on Arc: approve the market for the amount (only when the allowance is short), then `bid`. That's up to two
- * transactions; gas comes out of the same USDC. The call
- * is simulated first so a stale bid fails fast with a clear reason. Gas on Arc is paid in USDC.
+ * Real bid on Arc, always one transaction: when the allowance is short, approve + `bid` go together through Arc's
+ * Multicall3From (lib/market/batch.ts); otherwise just `bid`. Simulated first so a stale bid fails fast with a clear
+ * reason. Gas comes out of the same USDC.
  */
 export function useBid() {
   const { walletAddress, wallet, isEmbeddedWallet, authenticated, login, sendTransaction } = usePatchedAuth();
@@ -87,16 +88,22 @@ export function useBid() {
         if (receipt.status !== "success") throw new Error("reverted");
       };
 
-      if (allowance < amount) {
-        await send(USDC, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [MARKET, amount] }));
-      }
-
       const args = [BigInt(listingId), patchId, amount] as const;
-      // Fail fast with the contract's own reason (e.g. someone just outbid you).
-      await publicClient.simulateContract({ address: MARKET, abi: patchedMarketAbi, functionName: "bid", args, account: walletAddress });
-
-      setStatus("confirming");
-      await send(MARKET, encodeFunctionData({ abi: patchedMarketAbi, functionName: "bid", args }));
+      if (allowance < amount && MULTICALL_FROM) {
+        // One tap: approve + bid in one transaction through Arc's Multicall3From (the brand stays the bidder).
+        const batch = batchedBids(amount, [{ listingId, patchId, amount }]);
+        // Fail fast with the contract's own reason (e.g. someone just outbid you).
+        await publicClient.simulateContract({ address: batch.to, abi: multicallFromAbi, functionName: "aggregate3", args: [batch.calls], account: walletAddress });
+        setStatus("confirming");
+        await send(batch.to, batch.data);
+      } else {
+        if (allowance < amount) {
+          await send(USDC, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [MARKET, amount] }));
+        }
+        await publicClient.simulateContract({ address: MARKET, abi: patchedMarketAbi, functionName: "bid", args, account: walletAddress });
+        setStatus("confirming");
+        await send(MARKET, encodeFunctionData({ abi: patchedMarketAbi, functionName: "bid", args }));
+      }
 
       setStatus("done");
       // Let the indexer pick it up right away instead of waiting for the next scheduled run.

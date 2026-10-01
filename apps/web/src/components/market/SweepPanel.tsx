@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { formatUsdc } from "@/lib/format";
-import { SWEEPER, USDC, publicClient, GAS_RESERVE } from "@/lib/config";
+import { MULTICALL_FROM, SWEEPER, USDC, publicClient, GAS_RESERVE } from "@/lib/config";
+import { batchedBids, multicallFromAbi } from "@/lib/market/batch";
 import type { LivePatch } from "@/lib/market/types";
 import { friendlyError } from "@/lib/market/useBid";
 import { usePermitSigner } from "@/lib/market/permit";
@@ -45,7 +46,7 @@ export function SweepPanel({ listingId, patches, minNext, me }: Props) {
   const chosen = open.filter((p) => picked.includes(p.id));
   const total = chosen.reduce((s, p) => s + minNext(p), 0n);
 
-  if (!SWEEPER || open.length < 2) return null;
+  if ((!SWEEPER && !MULTICALL_FROM) || open.length < 2) return null;
 
   const toggle = (id: number) => setPicked((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]));
 
@@ -60,6 +61,16 @@ export function SweepPanel({ listingId, patches, minNext, me }: Props) {
       const balance = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [walletAddress!] });
       if (balance < total + GAS_RESERVE) throw new Error("insufficient USDC");
       await stepUp.ensure(total);
+      if (MULTICALL_FROM) {
+        // Arc: approve the total and place every bid in one transaction through Multicall3From. No permit needed.
+        const batch = batchedBids(total, chosen.map((p) => ({ listingId, patchId: p.id, amount: minNext(p) })));
+        await publicClient.simulateContract({ address: batch.to, abi: multicallFromAbi, functionName: "aggregate3", args: [batch.calls], account: walletAddress! });
+        await send(batch.to, batch.data);
+        fetch("/api/indexer/sync", { method: "POST" }).catch(() => {});
+        toast(`You lead ${chosen.length} patches · ${usd(total)} locked in escrow`);
+        setPicked([]);
+        return;
+      }
       const { deadline, v, r, s } = await signPermit(SWEEPER!, total);
       // Fail fast with the contract's own reason (e.g. someone just outbid one of the picks).
       await publicClient.simulateContract({

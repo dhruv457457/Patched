@@ -16,6 +16,8 @@ export const RECEIPT = deployment.receipt;
 export const AUTO_BIDDER = deployment.autoBidder ?? null;
 /** PatchSweeper for this market, if deployed. */
 export const SWEEPER = deployment.sweeper ?? null;
+/** Arc's Multicall3From, if this chain has it: one transaction for approve + bid (see lib/market/batch.ts). */
+export const MULTICALL_FROM = deployment.multicallFrom ?? null;
 export const USDC = deployment.usdc;
 /** The dollar token is the TestUSD faucet token (mainnet test run), not real USDC. */
 export const TEST_TOKEN = deployment.testToken === true;

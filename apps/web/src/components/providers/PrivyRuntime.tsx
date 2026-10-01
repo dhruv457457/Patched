@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { forgetSignedIn } from "@/lib/signedIn";
 import {
+  addRpcUrlOverrideToChain,
   PrivyProvider,
   useCreateWallet,
   useExportWallet,
@@ -172,6 +173,14 @@ function Bridge({ onChange }: { onChange: (v: AuthContextValue) => void }) {
   return null;
 }
 
+/**
+ * The embedded wallet sends through our own /api/rpc, not Arc's public RPC: Brave Shields and uBlock block every
+ * *.arc.io request, which made every transaction (stake approval, bids) fail silently in those browsers.
+ */
+const CHAINS = [arcTestnet, arcMainnet].map((c) =>
+  c.id === CHAIN_ID && typeof window !== "undefined" ? addRpcUrlOverrideToChain(c, `${window.location.origin}/api/rpc`) : c,
+);
+
 export default function PrivyRuntime({ onChange }: { onChange: (v: AuthContextValue) => void }) {
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
   if (!appId) throw new Error("NEXT_PUBLIC_PRIVY_APP_ID is missing from .env.local");
@@ -196,8 +205,8 @@ export default function PrivyRuntime({ onChange }: { onChange: (v: AuthContextVa
           // Bids are confirmed in our own UI; don't show Privy's extra confirmation modals.
           showWalletUIs: false,
         },
-        defaultChain: CHAIN,
-        supportedChains: [arcTestnet, arcMainnet],
+        defaultChain: CHAINS.find((c) => c.id === CHAIN_ID) ?? CHAIN,
+        supportedChains: CHAINS,
       }}
     >
       <Bridge onChange={onChange} />

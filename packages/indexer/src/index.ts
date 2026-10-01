@@ -11,7 +11,8 @@ import { arcMainnet, arcTestnet, DEPLOYMENTS, patchAutoBidderAbi, patchedMarketA
 const CHAINS = { 5042002: arcTestnet, 5042: arcMainnet } as const;
 export type IndexedChainId = keyof typeof CHAINS;
 
-const MAX_RANGE = 1000n; // Monad RPC limit for eth_getLogs
+// Blocks per eth_getLogs call: Monad's RPC allows 1000; others (Arc on QuickNode) allow more. INDEXER_MAX_RANGE overrides.
+const MAX_RANGE = BigInt(process.env.INDEXER_MAX_RANGE ?? 1000);
 // Monad has single-slot finality (~0.8s), so the latest block is safe to index.
 const CONFIRMATIONS = 0n;
 

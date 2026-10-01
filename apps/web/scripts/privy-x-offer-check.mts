@@ -14,7 +14,7 @@ for (const line of readFileSync(join(process.cwd(), "..", "..", ".env.local"), "
   const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
 }
-process.env.NEXT_PUBLIC_CHAIN_ID ??= "10143";
+process.env.NEXT_PUBLIC_CHAIN_ID ??= "5042002";
 
 const { encodeFunctionData } = await import("viem");
 const { PrivyClient } = await import("@privy-io/node");
@@ -22,7 +22,7 @@ const { DEPLOYMENTS } = await import("@patched/shared");
 const { privyUserForX } = await import("../src/lib/server/xOffers");
 const { ERC20_SPEND_ABI, campaignRules, offerAdvanceRule } = await import("../src/lib/market/campaignPolicy");
 
-const chainId = 10143;
+const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 5042002);
 const d = DEPLOYMENTS[chainId]!;
 const key = process.env.PRIVY_AUTHORIZATION_PRIVATE_KEY!;
 const owner = { public_key: createPublicKey(createPrivateKey({ key: Buffer.from(key.replace(/^wallet-auth:/, ""), "base64"), format: "der", type: "pkcs8" })).export({ format: "der", type: "spki" }).toString("base64") };

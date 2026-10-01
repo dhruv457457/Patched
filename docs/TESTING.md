@@ -1,12 +1,12 @@
 # Testing Patched by hand
 
-A checklist to try every feature on Monad testnet, and what is already proven by scripts. Work top to bottom: each
+A checklist to try every feature on Arc testnet, and what is already proven by scripts. Work top to bottom: each
 section assumes the ones before it. Status as of 2026-10-01.
 
 ## 0. Before you start (once)
 
 1. **Privy allowed domains.** Privy dashboard → Configuration → App settings → Domains. Every site you test on must be
-   listed (`https://patched.world`, `https://monad.patched.world`, `http://localhost:3000`, your `*.vercel.app` URL).
+   listed (`https://patched.world`, `https://arc.patched.world`, `http://localhost:3000`, your `*.vercel.app` URL).
    If sign-in shows "That didn't go through" and the console shows a 403 from `auth.privy.io/api/v1/oauth/init`, the
    domain is missing.
 2. **Database.** `pnpm db:migrate` (applies everything up to `0018`).
@@ -14,8 +14,8 @@ section assumes the ones before it. Status as of 2026-10-01.
    `NEXT_PUBLIC_PRIVY_SIGNER_ID`. Redeploy after changing any `NEXT_PUBLIC_` value.
 4. **Two accounts.** You need a creator and a brand, ideally two X accounts or one X plus one email. A private window
    keeps them apart. Privy test accounts (dashboard → Authentication → Test accounts) also work.
-5. **Test USDC.** Patched wallets don't need MON (gas is sponsored on testnet). Send testnet USDC
-   (`0x534b2f3A21130d7a60830c2Df862319e593943A3`) to each wallet from Circle's testnet faucet.
+5. **Test USDC.** On Arc, USDC is also the gas, so one balance covers bids and fees. Send testnet USDC
+   (`0x3600000000000000000000000000000000000000`) to each wallet from Circle's faucet (faucet.circle.com, Arc Testnet).
 6. **Admin.** One account must be admin on the market (to approve listings). Use the deployer wallet or grant the role.
 
 ## 1. Sign in and profile
@@ -26,7 +26,7 @@ section assumes the ones before it. Status as of 2026-10-01.
 | Open your profile `/<handle>` | Your X name and profile picture, `x.com/<you>`, and your follower count (filled within a minute of first sign-in, refreshed daily). |
 | Sign in with email in another window | A second wallet, made without any popup. |
 | "I have a wallet" → MetaMask | Choose "keep mine" or "fresh Patched wallet". |
-| Your subdomain `https://<handle>.monad.patched.world` | Your page, without the app sidebar. |
+| Your subdomain `https://<handle>.arc.patched.world` | Your page, without the app sidebar. |
 
 ## 2. Creator: list a spot
 
@@ -61,7 +61,7 @@ section assumes the ones before it. Status as of 2026-10-01.
 
 | Try | Expect |
 |---|---|
-| `/campaigns/new` → set budget, max per spot, event → See the policy | JSON shows the aggregation, the sponsored bid rule and the "Budget check" rule. |
+| `/campaigns/new` → set budget, max per spot, event → See the policy | JSON shows the aggregation, the bid rule and the "Budget check" rule. |
 | Fund and start | Campaign page shows the wallet; bids appear in "What happened" as open spots exist. |
 | Set a small budget with several open spots | Bids stop at the budget; a "Privy stopped a $X bid … past its budget" line appears. |
 | Pause / resume / end | Ending sends what's left back to your wallet. |
@@ -106,6 +106,6 @@ From `apps/web` with `.env.local` in the repo root (add `NODE_USE_ENV_PROXY=1` i
   before checking the policy, so a bid that would revert never reaches the policy.
 - **X lookup** (offers, followers) uses `api.fxtwitter.com`, tested with sample responses only. If it fails on Vercel,
   set `X_BEARER_TOKEN` (X API Basic).
-- **Mainnet:** gas sponsorship is off in the mainnet config, so server-wallet sends (keeper, campaigns, offers) need
-  MON in those wallets or sponsorship turned on for mainnet in Privy.
+- **Gas on Arc:** Privy has no gas sponsorship on Arc, so every wallet pays its own gas in USDC. Server wallets (keeper,
+  campaigns, offers, open admin) each need a little testnet USDC.
 - **React error #418** (hydration) shows in the console sometimes; React recovers. Tracked in `docs/requests.md`.

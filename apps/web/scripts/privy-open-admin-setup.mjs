@@ -29,7 +29,7 @@ const FNS = ABI.map((f) => f.name);
 // Every chain's market from packages/shared/src/addresses.ts (plain text match, like the keeper scripts).
 const addresses = readFileSync(join(root, "packages", "shared", "src", "addresses.ts"), "utf8");
 const markets = [];
-for (const chainId of [10143, 143]) {
+for (const chainId of [5042002, 5042]) {
   const section = addresses.slice(addresses.indexOf(`\n  ${chainId}: {`));
   const market = section.match(/market: "(0x[0-9a-fA-F]{40})"/)?.[1];
   if (market) markets.push({ chainId, market: market.toLowerCase() });

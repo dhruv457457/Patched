@@ -60,7 +60,7 @@ export async function createCampaign(input: { brand: string; did: string; eventI
   const privy = privyServer();
   const owner = keyOwner();
   const o = input.offer;
-  // Privy names are short: "Campaign 0xabcd12 e1 c10143", "Offer 0xabcd12 @dhruv c10143".
+  // Privy names are short: "Campaign 0xabcd12 e1 c5042002", "Offer 0xabcd12 @dhruv c5042002".
   const label = o ? `Offer ${input.brand.slice(0, 8)} @${o.handle} c${CHAIN_ID}` : `Campaign ${input.brand.slice(0, 8)} e${input.eventId} c${CHAIN_ID}`;
   const aggregationId = await createAggregation(campaignAggregation({
     chainId: CHAIN_ID, market: MARKET, name: `${label} spend`, windowSeconds: input.endsAt - Date.now() / 1000 + 3600,

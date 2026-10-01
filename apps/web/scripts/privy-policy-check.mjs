@@ -16,7 +16,7 @@ for (const line of readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/)
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
 }
 
-const chainId = Number(process.argv[2] ?? 10143);
+const chainId = Number(process.argv[2] ?? 5042002);
 const addresses = readFileSync(join(root, "packages", "shared", "src", "addresses.ts"), "utf8");
 // Match the key at the start of a line so "143" does not match inside "10143".
 const section = addresses.slice(addresses.indexOf(`

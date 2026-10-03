@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { clearReloadFlag } from "@/lib/recover";
 import { useSignedIn } from "@/lib/signedIn";
 import { Navbar } from "./Navbar";
 import { Sidebar } from "./Sidebar";
@@ -17,6 +19,11 @@ import { isHome, isListingPage } from "@/lib/routes";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const signedIn = useSignedIn();
+  // Healthy for a while: re-arm the one automatic reload that recovers a tab left open across a deploy (lib/recover.ts).
+  useEffect(() => {
+    const t = setTimeout(clearReloadFlag, 15_000);
+    return () => clearTimeout(t);
+  }, []);
 
   if (isListingPage(pathname) || pathname.startsWith("/welcome")) {
     return <div className="flex-1">{children}</div>;
